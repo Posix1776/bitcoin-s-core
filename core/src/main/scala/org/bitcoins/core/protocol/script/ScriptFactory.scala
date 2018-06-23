@@ -26,6 +26,7 @@ trait ScriptFactory[T] extends Factory[T] {
   def fromBytes(bytes: Seq[Byte]): T = {
     val cpmct = CompactSizeUInt.parseCompactSizeUInt(bytes)
     val (_, noCmpctUInt) = bytes.splitAt(cpmct.bytes.size)
+    require(noCmpctUInt.length == cpmct.num.toInt, "Actual buffer size does not match buffer size indicated by compact size.")
     val asm = ScriptParser.fromBytes(noCmpctUInt)
     fromAsm(asm)
   }

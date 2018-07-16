@@ -1,8 +1,7 @@
 package org.bitcoins.core.protocol
 
-import LNTagPrefix.LNTagPrefix
 import org.bitcoins.core.config._
-import org.bitcoins.core.config.{MainNet, RegTest, TestNet3}
+import org.bitcoins.core.crypto.ECDigitalSignature
 import org.bitcoins.core.currency.{CurrencyUnit, CurrencyUnits}
 import org.bitcoins.core.number.UInt8
 import org.bitcoins.core.util._
@@ -12,7 +11,7 @@ sealed abstract class LightningInvoice {
 
   private def logger = BitcoinSLogger.logger
 
-  val Bech32Separator: Int = 1
+  val bech32Separator: Int = 1
 
   def network: NetworkParameters
 
@@ -23,18 +22,14 @@ sealed abstract class LightningInvoice {
 
   def lnTags: LNInvoiceTags
 
-  type Signature = (String, Int)
-  def signature:Signature
+  type Signature = (ECDigitalSignature, Int)
+  def signature: Signature
 
-  def bech32Checsum:String = "" //TODO: Unimplemented. See Bech32Address.createChecksum
+  def bech32Checksum: String = "" //TODO: Unimplemented. See Bech32Address.createChecksum
 
-  def networkPrefix: String = network match {
-    case MainNet  => "lnbc"
-    case TestNet3 => "lntb"
-    case RegTest  => "lnbcrt"
-  }
+  def networkPrefix: String = LightningNetworkPrefix.fromNetworkParameters(network).get.value
 
-  def multiplier:String =  amount.get._2 match {
+  def multiplier: String =  amount.get._2 match {
     //TODO: THIS IS ONLY FOR TESTING. Additional CurrencyUnits need to be added to support LN.
     case CurrencyUnits.oneMBTC  => "u"
     case CurrencyUnits.oneBTC   => "m"
@@ -42,42 +37,24 @@ sealed abstract class LightningInvoice {
 
   def invoiceAmount: String = { if(amount.nonEmpty){ amount.get._1 + multiplier } else { "" } }
 
-  def Bech32TimeStamp:String = {
+  def bech32TimeStamp: String = {
     val paddedBinary = timestamp.toBinaryString.reverse.padTo(35, "0").reverse.grouped(5).toList
     val timeBinaryToInt = paddedBinary.map(s => Integer.parseInt(s.mkString, 2))
     val timeUInt8 = timeBinaryToInt.map(i => UInt8(i.toShort))
     Bech32Address.encodeToString(timeUInt8)
   }
 
-  def Bech32EncodedSignature:String = {
-    val sigRecoveryHex = if(signature._2 > 0) { "0" + signature._2 } else { "" } //Hex value of recovery bit, padded to ##. I dont like this.
-    val sigFullHex = signature._1 + sigRecoveryHex                               //There should be some type of String.Format(##) to expand the hex value to ##.
-    val sigHexPaddedBinary = BigInt(sigFullHex, 16).toString(2).reverse.padTo(512, "0").reverse.padTo(520, "0").grouped(5).toList
+  def bech32EncodedSignature: String = {
+    val sigRecoveryHex = if(signature._2 > 0) { "%02d".format(signature._2)} else { "" } //Hex value of recovery bit, padded to ##.
+    val sigFullHex = signature._1.hex + sigRecoveryHex
+    val sigHexPaddedBinary = BigInt(sigFullHex, 16).toString(2).reverse.padTo(512, "0").reverse.padTo(520, "0").grouped(5).toList //TODO: Fix this
     val sigHexBinaryToInt = sigHexPaddedBinary.map(s => Integer.parseInt(s.mkString, 2))
     val sigHexUInt8 = sigHexBinaryToInt.map(i => UInt8(i.toShort))
     Bech32Address.encodeToString(sigHexUInt8)
   }
 
-  def Invoice: String = { networkPrefix + invoiceAmount + Bech32Separator + Bech32TimeStamp + lnTags.toBech32String + Bech32EncodedSignature + bech32Checsum }
+  def invoice: String = { networkPrefix + invoiceAmount + bech32Separator + bech32TimeStamp + lnTags.toBech32String + bech32EncodedSignature +  bech32Checksum }
 
-}
-
-case class LNInvoice(network: NetworkParameters, amount:Option[(Int, CurrencyUnit)], lnTags: LNInvoiceTags, signature: (String, Int)) extends LightningInvoice {
-
-}
-
-//We cant use enums without creating an object?
-//https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
-object LNTagPrefix extends Enumeration {
-  type LNTagPrefix = Value
-  val paymentHash     = Value("p")
-  val description     = Value("d")
-  val signaturePubKey = Value("n")
-  val descriptionHash = Value("h")
-  val expiryTime      = Value("x")
-  val ctvlExpiry      = Value("c")
-  val fallbackAddress = Value("f")
-  val routingInfo     = Value("r")
 }
 
 sealed abstract class LNInvoiceTags {
@@ -85,80 +62,159 @@ sealed abstract class LNInvoiceTags {
 
   def description: Option[String]
 
-  def signaturePubKey: Option[String] //TODO: Unimplemented
+  def signaturePubKey: Option[String]
 
   def descriptionHash: Option[String]
 
   def expiryTime: Option[Int]
 
-  def cltvExpiry: Option[Int] //TODO: Unimplemented
+  def cltvExpiry: Option[Int]
 
-  def fallbackAddress: Option[String] //TODO: Work-In-Progress. Add address Type
+  type fallbackAddress = (Int,String)
+  def fallbackAddress: Option[fallbackAddress]
 
-  def routingInfo: Option[String] //TODO: Unimplemented
+  def routingInfo: Option[Seq[LNRoutingInfo]] //TODO: Implementation started. Not working.
 
-  def toUnsigned(byte:Byte):Int = {
+  def toUnsigned(byte:Byte): Int = {
     byte & 0xFF
   }
 
-  def toBech32String:String = {
-    Bech32EncodeHex(LNTagPrefix.paymentHash, paymentHash) +
-      Bech32EncodeString(LNTagPrefix.description, description) +
-      Bech32EncodeString(LNTagPrefix.signaturePubKey, signaturePubKey) +
-      Bech32EncodeHex(LNTagPrefix.descriptionHash, descriptionHash.getOrElse("")) +
-      Bech32EncodeInt(LNTagPrefix.expiryTime, expiryTime) +
-      Bech32EncodeInt(LNTagPrefix.ctvlExpiry, cltvExpiry) +
-      Bech32EncodeHex(LNTagPrefix.fallbackAddress, fallbackAddress.getOrElse("")) +
-      Bech32EncodeString(LNTagPrefix.routingInfo, routingInfo)
+  def toBech32String: String = {
+    bech32EncodeHex(LNTagPrefix.PaymentHash, paymentHash) +
+    bech32EncodeString(LNTagPrefix.Description, description) +
+    bech32EncodeHex(LNTagPrefix.SignaturePubKey, signaturePubKey.getOrElse("")) +
+    bech32EncodeHex(LNTagPrefix.DescriptionHash, descriptionHash.getOrElse("")) +
+    bech32EncodeInt(LNTagPrefix.ExpiryTime, expiryTime) +
+    bech32EncodeCltv(LNTagPrefix.CtvlExpiry, cltvExpiry) +
+    toBech32FallBackAddress(LNTagPrefix.FallbackAddress, fallbackAddress) +
+    toBech32RoutingInfo(LNTagPrefix.RoutingInfo, routingInfo)
   }
 
-  def Bech32EncodeString(prefix:LNTagPrefix, tag:Option[String]):String = {
+  def toBech32RoutingInfo(prefix:LNTagPrefix, routingInfo:Option[Seq[LNRoutingInfo]]): String = {
+    if(!routingInfo.isEmpty) {
+      var routing = ""
+      for(route <- routingInfo.get) {
+        /** Enter at your own risk. Magic numbers and incorrect encoding ahead. **/
+        val nodeId = route.pubkey
+        val shortId = route.shortChannelID
+        val feeBasedMsat = route.feeBaseMsat
+        val feePropMilli = route.feePropMilli
+        val cltvExpiry = route.cltvExpiryDelta
+
+        val nodeIdUInt8 = BitcoinSUtil.decodeHex(nodeId).map(i => UInt8(toUnsigned(i).toShort))
+        val shortIdPaddedBinary = BigInt(shortId, 16).toString(2).reverse.padTo(63, "0").reverse.grouped(5).toList //Pad to 63 as defined in bolt11
+        val shortIdBinaryToInt = shortIdPaddedBinary.map(s => Integer.parseInt(s.mkString, 2))
+        val shortIdUInt8 = shortIdBinaryToInt.map(i => UInt8(i.toShort))
+
+        val feeBasedMsatUInt8 = intToUInt8(feeBasedMsat, 30, 0)
+        val feePropMilliUInt8 = intToUInt8(feePropMilli, 32, 35)
+        val cltvExpiryUInt8 = intToUInt8(cltvExpiry, 13, 15)
+
+        val nodeIdBase5 = Bech32Address.encode(nodeIdUInt8).get
+        val nodeIdBech32 = Bech32Address.encodeToString(nodeIdBase5)
+        val shortIdBech32 = Bech32Address.encodeToString(shortIdUInt8)
+
+        routing += "-routing:" + nodeIdBech32 + "_" + shortIdBech32 + "_" + Bech32Address.encodeToString(feeBasedMsatUInt8) + "_" + Bech32Address.encodeToString(feePropMilliUInt8) + "_" + Bech32Address.encodeToString(cltvExpiryUInt8)
+      }
+      routing
+    }
+    else { "" }
+  }
+
+  def intToUInt8(input:Int, paddingLeft:Int, paddingRight:Int): Seq[UInt8] = {
+    val paddedBinary = input.toBinaryString.reverse.padTo(paddingLeft, "0").reverse.padTo(paddingRight, "0").grouped(5).toList
+    val binaryToInt = paddedBinary.map(s => Integer.parseInt(s.mkString, 2))
+    binaryToInt.map(i => UInt8(i.toShort))
+  }
+
+  def getPaddedInt(number:Int): List[Int] = {
+    //Pad Binary to nearest length that is divisible by 5.
+    val numberInBinary = number.toBinaryString
+    var paddingLength = numberInBinary.length
+    if(numberInBinary.length % 5 > 0) { paddingLength += (5 - (numberInBinary.length % 5)) }
+    val paddedBinary = numberInBinary.reverse.padTo(paddingLength, "0").reverse.grouped(5).toList
+    paddedBinary.map(s => Integer.parseInt(s.mkString, 2))
+  }
+
+  def toBech32FallBackAddress(prefix:LNTagPrefix, tag:Option[fallbackAddress]): String = {
+    if (!tag.isEmpty) {
+      val addrType = tag.get._1
+      val address  = tag.get._2
+
+      val addrTypeUInt8        = getPaddedInt(addrType).map(i => UInt8(i.toShort))
+      val addrTypeBech32String = Bech32Address.encodeToString(addrTypeUInt8)
+
+      val addressUInt8 = BitcoinSUtil.decodeHex(address).map(i => UInt8(toUnsigned(i).toShort))
+      val addressBase5 = Bech32Address.encode(addressUInt8).get
+      val addressBech32String = Bech32Address.encodeToString(addressBase5)
+
+      val bech32DataLength = bech32CalcDataLength(addrTypeBech32String + addressBech32String)
+      prefix.value + bech32DataLength + addrTypeBech32String + addressBech32String
+    } else { "" }
+  }
+
+  def bech32EncodeString(prefix:LNTagPrefix, tag:Option[String]): String = {
     if (tag.isDefined) {
       val stringUInt8 = tag.get.map(a => a.toByte).map(i => UInt8(toUnsigned(i).toShort))
       val stringBase5 = Bech32Address.encode(stringUInt8)
       val bech32String = Bech32Address.encodeToString(stringBase5.get)
-      val bech32DataLength = Bech32CalcDataLength(bech32String)
-      prefix.toString + bech32DataLength + bech32String
+      val bech32DataLength = bech32CalcDataLength(bech32String)
+      prefix.value + bech32DataLength + bech32String
     }
     else { "" }
   }
 
-  def Bech32EncodeHex(prefix:LNTagPrefix, tag:String):String = {
+  def bech32EncodeHex(prefix:LNTagPrefix, tag:String): String = {
     if (!tag.isEmpty) {
       val tagUInt8 = BitcoinSUtil.decodeHex(tag).map(i => UInt8(toUnsigned(i).toShort))
       val tagBase5 = Bech32Address.encode(tagUInt8).get
       val bech32String = Bech32Address.encodeToString(tagBase5)
-      val bech32DataLength = Bech32CalcDataLength(bech32String)
-      prefix.toString + bech32DataLength + bech32String
+      val bech32DataLength = bech32CalcDataLength(bech32String)
+      prefix.value + bech32DataLength + bech32String
     } else { "" }
   }
 
-  def Bech32EncodeInt(prefix:LNTagPrefix, tag:Option[Int]):String = {
+  def bech32EncodeInt(prefix:LNTagPrefix, tag:Option[Int]): String = {
     if (tag.isDefined) {
-      val inputBinary = tag.get.toBinaryString
-      val inputPadLength = inputBinary.length + (5 - (inputBinary.length % 5)) //Get the nearest number that is divisible by 5.
-      val inputPaddedBinary = inputBinary.reverse.padTo(inputPadLength, "0").reverse.grouped(5).toList //Pad to the nearest number that is divisible by 5.
-      val inputBinaryToInt = inputPaddedBinary.map(s => Integer.parseInt(s.mkString, 2))
-      val inputUInt8 = inputBinaryToInt.map(i => UInt8(i.toShort))
+      val inputUInt8 = getPaddedInt(tag.get).map(i => UInt8(i.toShort))
       val bech32String = Bech32Address.encodeToString(inputUInt8)
-      val bech32DataLength = Bech32CalcDataLength(bech32String)
-      prefix.toString + bech32DataLength + bech32String
+      val bech32DataLength = bech32CalcDataLength(bech32String)
+      prefix.value + bech32DataLength + bech32String
     }
     else { "" }
   }
 
-  def Bech32CalcDataLength(Bech32EncodedString:String):String = {
+  def bech32CalcDataLength(Bech32EncodedString:String): String = {
     val dataLengthMultiplier = Bech32EncodedString.length / 32
     val dataLength = Bech32EncodedString.length % 32
     Bech32Address.encodeToString(Seq(UInt8(dataLengthMultiplier.toShort), UInt8(dataLength.toShort)))
   }
+
+  def bech32EncodeCltv(prefix:LNTagPrefix, tag:Option[Int]): String = {
+    if(!tag.isEmpty) {
+      val paddedBinary = tag.get.toBinaryString.reverse.padTo(10, "0").reverse.grouped(5).toList
+      val ctlvBinaryToInt = paddedBinary.map(s => Integer.parseInt(s.mkString, 2))
+      val ctlvUInt8 = ctlvBinaryToInt.map(i => UInt8(i.toShort))
+      val bech32String = Bech32Address.encodeToString(ctlvUInt8)
+      val bech32DataLength = bech32CalcDataLength(bech32String)
+      prefix.value + bech32DataLength + bech32String
+    }
+    else { "" }
+  }
+
 }
 
-case class LNTags(paymentHash: String, description: Option[String], signaturePubKey: Option[String],
-                  descriptionHash: Option[String],
-                  expiryTime: Option[Int], cltvExpiry: Option[Int],
-                  fallbackAddress: Option[String], routingInfo: Option[String]) extends LNInvoiceTags {
-  //TODO: Add additional checking to verify that description is <640 bytes. If over, you must use descriptionHash
-  require(description.nonEmpty || descriptionHash.nonEmpty, "You must supply an invoice description, or description hash in order to create an invoice.")
+case class LNInvoice(network: NetworkParameters, amount:Option[(Int, CurrencyUnit)], lnTags: LNInvoiceTags, signature: (ECDigitalSignature, Int)) extends LightningInvoice {
 
 }
+
+case class LNTags(paymentHash: String, description: Option[String], signaturePubKey: Option[String], descriptionHash: Option[String],
+                  expiryTime: Option[Int], cltvExpiry: Option[Int], fallbackAddress: Option[(Int,String)],
+                  routingInfo: Option[Seq[LNRoutingInfo]]) extends LNInvoiceTags {
+    require((description.nonEmpty && description.get.length < 640) || descriptionHash.nonEmpty, "You must supply either a description hash, or a literal description that is 640 characters or less to create an invoice.")
+}
+
+case class LNRoutingInfo(pubkey:String, shortChannelID:String,feeBaseMsat:Int,feePropMilli:Int,cltvExpiryDelta:Int) {
+
+}
+

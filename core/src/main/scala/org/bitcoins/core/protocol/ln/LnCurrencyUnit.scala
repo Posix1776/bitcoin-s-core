@@ -50,8 +50,8 @@ sealed abstract class LnCurrencyUnit extends NetworkElement {
     } else { throw new IllegalArgumentException(s"Cannot multiply different currency types. Precision will be lost.") }
   }
 
-  def unary_- : Unit = { //Satoshis(-satoshis.underlying) //if(this == c) {
-    -toBigInt// + c.toSatoshis }
+  def unary_- : LnCurrencyUnit = {
+    currencyUnitFromInt(this, -toBigInt)
   }
 
   override def bytes: Seq[Byte] = toSatoshis.bytes

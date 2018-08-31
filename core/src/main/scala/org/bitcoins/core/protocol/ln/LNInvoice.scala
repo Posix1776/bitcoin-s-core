@@ -2,23 +2,36 @@ package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.config._
 import org.bitcoins.core.crypto.ECDigitalSignature
-import org.bitcoins.core.currency.{ Bitcoins, CurrencyUnit, CurrencyUnits, Satoshis }
-import org.bitcoins.core.number.UInt8
+import org.bitcoins.core.currency.{Bitcoins, CurrencyUnit, CurrencyUnits, Satoshis}
+import org.bitcoins.core.number.{UInt64, UInt8}
 import org.bitcoins.core.protocol.Bech32Address
 import org.bitcoins.core.util._
 
 sealed abstract class LightningInvoice {
 
+  //TESTING ZONE:
+  var timeUINT8: Seq[UInt8] = Nil
+  var tagsUINT8: Seq[UInt8] = lnTags.getUINT8s
+  var sigsUINT8: Seq[UInt8] = Nil
+  var UINTS = timeUINT8 ++ tagsUINT8 ++ sigsUINT8
+
   private def logger = BitcoinSLogger.logger
 
-  val bech32Separator: Int = Bech32Address.separator
+  val bech32Separator: Char = Bech32Address.separator
 
-  def network: LightningNetworkParams
+  //BOLT-11 data length requirements
+  val signatureBase32Len = 104 //520 bit field. 520 / 5 = 104
+  val timestampBase32Len = 7   //35  bit field.  35 / 5 = 7
+
+  def hrp: LnInvoiceHRP
+
+  def network: LightningNetworkParams = hrp.network
 
   //let's create currency units for lightning
-  def amountOpt: Option[CurrencyUnit]
+  //def amountOpt: Option[CurrencyUnit] = hrp.amountOpt
+  //def multiplierOpt: Option[LnInvoiceMultiplier] = hrp.multiplierOpt
 
-  def timestamp: Long
+  def timestamp: UInt64
 
   def lnTags: LNInvoiceTags
 
@@ -27,51 +40,65 @@ sealed abstract class LightningInvoice {
 
   def bech32Checksum: String = "" //TODO: Unimplemented. See Bech32Address.createChecksum
 
-  def multiplierOpt: Option[LnInvoiceMultiplier]
+  //TODO: Refactor Into Bech32Address
+  def uInt64ToBase32(inputNum:UInt64): Seq[UInt8] = {
+    if(inputNum > UInt64.zero) {
+      // To fit an UInt64, we need at most ceil(64 / 5) = 13 groups of 5 bits.
+      val base32Arr: Array[Byte] = new Array[Byte](13)
+      var group = 13
+      var number = inputNum
 
-  def invoiceAmount: String = {
-    (amountOpt, multiplierOpt) match {
-      case (Some(amount), Some(multiplier)) =>
-        currencyToString(amount) + multiplier.char
-      case (Some(amount), None) =>
-        currencyToString(amount)
-      case (None, Some(multiplier)) =>
-        throw new IllegalArgumentException(s"Cannot have a multipliler without an amount, got ${multiplier}")
-      case (None, None) => ""
+      while (number > UInt64.zero) {
+        group -= 1
+        base32Arr(group) = (number & UInt64(31)).toInt.toByte
+        number = number >> 5
+      }
+      base32Arr.dropWhile(_ == 0).map(b => UInt8(b)) //Drop leading 0's and return Seq[UInt8]
     }
+    else { Seq() }
   }
 
-  private def currencyToString(amt: CurrencyUnit): String = {
-    //not sure how to convert amount properly, just going to call `.toString()` which is wrong
-    amt.satoshis.toLong.toString
+  def hexToBase32(hex:String): Seq[UInt8] = {
+    val byteArr = BitcoinSUtil.decodeHex(hex).map(b => UInt8(toUnsigned(b)))
+    Bech32Address.encode(byteArr).get
+  }
+
+  def padBase32(base32: Seq[UInt8], padTo:Int) = {
+    var arr = base32
+    while (arr.length < padTo) {
+      arr = arr :+ UInt8(0)
+    }
+    arr
+  }
+
+  def toUnsigned(byte: Byte): Int = {
+    byte & 0xFF
   }
 
   def bech32TimeStamp: String = {
-    val paddedBinary = timestamp.toBinaryString.reverse.padTo(35, "0").reverse.grouped(5).toList
-    val timeBinaryToInt = paddedBinary.map(s => Integer.parseInt(s.mkString, 2))
-    val timeUInt8 = timeBinaryToInt.map(i => UInt8(i.toShort))
-    Bech32Address.encodeToString(timeUInt8)
+    val base32Timestamp = uInt64ToBase32(timestamp)
+    val paddedTime = padBase32(base32Timestamp, timestampBase32Len)
+    timeUINT8 = paddedTime //TESTING ZONE
+    Bech32Address.encodeToString(paddedTime)
   }
 
-  def bech32EncodedSignature: String = {
+  def bech32Signature: String = {
     val sigRecoveryHex = if (signature._2 > 0) { "%02d".format(signature._2) } else { "" } //Hex value of recovery bit, padded to ##.
     val sigFullHex = signature._1.hex + sigRecoveryHex
-    val sigHexPaddedBinary = BigInt(sigFullHex, 16).toString(2).reverse.padTo(512, "0").reverse.padTo(520, "0").grouped(5).toList //TODO: Fix this
-    val sigHexBinaryToInt = sigHexPaddedBinary.map(s => Integer.parseInt(s.mkString, 2))
-    val sigHexUInt8 = sigHexBinaryToInt.map(i => UInt8(i.toShort))
-    Bech32Address.encodeToString(sigHexUInt8)
+    val sigBase32 = hexToBase32(sigFullHex)
+    val padBase = padBase32(sigBase32, signatureBase32Len)
+    sigsUINT8 = padBase //TESTING ZONE
+    Bech32Address.encodeToString(padBase)
   }
 
-  def invoice: String = { network.value + invoiceAmount + bech32Separator + bech32TimeStamp + lnTags.toBech32String + bech32EncodedSignature + bech32Checksum }
+  def invoice: String = { hrp.toString + bech32Separator + bech32TimeStamp + lnTags.toBech32String + bech32Signature + bech32Checksum }
 
 }
 
 case class LNInvoice(
-  network: LightningNetworkParams,
-  amountOpt: Option[CurrencyUnit],
-  multiplierOpt: Option[LnInvoiceMultiplier],
+  hrp: LnInvoiceHRP,
   lnTags: LNInvoiceTags,
-  timestamp: Long,
+  timestamp: UInt64,
   signature: (ECDigitalSignature, Int)) extends LightningInvoice
 
 case class LNRoutingInfo(pubkey: String, shortChannelID: String, feeBaseMsat: Int, feePropMilli: Int, cltvExpiryDelta: Int) {

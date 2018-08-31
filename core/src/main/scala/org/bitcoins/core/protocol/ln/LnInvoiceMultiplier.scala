@@ -12,5 +12,21 @@ object LnInvoiceMultiplier {
     override def multi: Double = 0.001
   }
 
-  //fill rest of them in..
+  case object Micro extends LnInvoiceMultiplier {
+    override def char = 'u'
+
+    override def multi: Double = 0.000001
+  }
+
+  case object Nano extends LnInvoiceMultiplier {
+    override def char = 'n'
+
+    override def multi: Double = 0.000000001
+  }
+
+  case object Pico extends LnInvoiceMultiplier {
+    override def char = 'p'
+
+    override def multi: Double = 0.000000000001
+  }
 }

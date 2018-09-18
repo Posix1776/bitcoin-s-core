@@ -216,6 +216,7 @@ object Bech32Address extends AddressFactory[Bech32Address] {
         }
     }
   }
+
   /** Takes a base32 byte array and encodes it to a string */
   def encodeToString(b: Seq[UInt8]): String = {
     b.map(b => charset(b.toInt)).mkString
@@ -313,7 +314,7 @@ object Bech32Address extends AddressFactory[Bech32Address] {
   }
 
   /** https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32 */
-  def charset: Seq[Char] = Seq('q', 'p', 'z', 'r', 'y', '9', 'x', '8',
+  val charset: Seq[Char] = Seq('q', 'p', 'z', 'r', 'y', '9', 'x', '8',
     'g', 'f', '2', 't', 'v', 'd', 'w', '0',
     's', '3', 'j', 'n', '5', '4', 'k', 'h',
     'c', 'e', '6', 'm', 'u', 'a', '7', 'l')

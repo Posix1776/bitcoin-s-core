@@ -1,17 +1,19 @@
 package org.bitcoins.core.protocol.ln
 
+import org.bitcoins.core.crypto.Sha256Digest
 import org.bitcoins.core.protocol.Bech32Address
 import org.bitcoins.core.util.BitcoinSUtil
 import org.bitcoins.core.number.{ UInt64, UInt8 }
+import org.bitcoins.core.protocol.script.ScriptPubKey
 
 sealed abstract class LnInvoiceTags {
-  def paymentHash: String
+  def paymentHash: Sha256Digest
 
   def description: Option[String]
 
-  def signaturePubKey: Option[String]
+  def spk: Option[ScriptPubKey]
 
-  def descriptionHash: Option[String]
+  def descriptionHash: Option[Sha256Digest]
 
   def expiryTime: Option[UInt64]
 
@@ -20,47 +22,51 @@ sealed abstract class LnInvoiceTags {
   type fallbackAddress = (Int, String)
   def fallbackAddress: Option[fallbackAddress] //TODO: Not implemented
 
-  def routingInfo: Option[Seq[LnRoutingInfo]] //TODO: Not implemented
+  def routingInfo: Option[Vector[LnRoutingInfo]] //TODO: Not implemented
 
   def toUnsignedByte(byte: Byte): Int = byte & 0xFF
 
   override def toString: String = {
-    fromHexStrToBech32(LnTagPrefix.PaymentHash, paymentHash) +
-    fromStringToBech32(LnTagPrefix.Description, description.getOrElse("")) +
-    fromHexStrToBech32(LnTagPrefix.SignaturePubKey, signaturePubKey.getOrElse("")) +
-    fromHexStrToBech32(LnTagPrefix.DescriptionHash, descriptionHash.getOrElse("")) +
-    fromUInt64toBech32(LnTagPrefix.ExpiryTime, expiryTime) +
-    fromUInt64toBech32(LnTagPrefix.CltvExpiry, cltvExpiry)
+    fromHexStrToBech32(LnTagPrefix.PaymentHash, paymentHash.hex) +
+      fromStringToBech32(LnTagPrefix.Description, description.getOrElse("")) +
+      fromHexStrToBech32(LnTagPrefix.SignaturePubKey, spk.map(_.hex).getOrElse("")) +
+      fromHexStrToBech32(LnTagPrefix.DescriptionHash, descriptionHash.map(_.hex).getOrElse("")) +
+      fromUInt64toBech32(LnTagPrefix.ExpiryTime, expiryTime) +
+      fromUInt64toBech32(LnTagPrefix.CltvExpiry, cltvExpiry)
     //TODO: Add fallBackAddress
     //TODO: Add routingInfo
   }
 
-  def fromStringToBech32(prefix: String, tag: String): String = {
+  def fromStringToBech32(prefix: LnTagPrefix, tag: String): String = {
     if (!tag.isEmpty) {
       val uInt8Array = tag.map(a => a.toByte).map(i => UInt8(toUnsignedByte(i).toShort))
       val base32Array = Bech32Address.encode(uInt8Array)
       val bech32String = Bech32Address.encodeToString(base32Array.get)
       val bech32DataLength = bech32EncodeDataLength(bech32String)
-      prefix + bech32DataLength + bech32String
+      prefix.value + bech32DataLength + bech32String
     } else { "" }
   }
 
-  def fromHexStrToBech32(prefix: String, tag: String): String = {
+  def fromHexStrToBech32(prefix: LnTagPrefix, tag: String): String = {
     if (!tag.isEmpty) {
       val uInt8Array = fromHexToBase32(tag)
       val bech32String = Bech32Address.encodeToString(uInt8Array)
       val bech32DataLength = bech32EncodeDataLength(bech32String)
-      prefix + bech32DataLength + bech32String
-    } else { "" }
+      prefix.toString + bech32DataLength + bech32String
+    } else {
+      ""
+    }
   }
 
-  def fromUInt64toBech32(prefix: String, tag: Option[UInt64]): String = {
+  def fromUInt64toBech32(prefix: LnTagPrefix, tag: Option[UInt64]): String = {
     if (tag.isDefined) {
       val uInt8Array = uInt64ToBase32(tag.get)
       val bech32String = Bech32Address.encodeToString(uInt8Array)
       val bech32DataLength = bech32EncodeDataLength(bech32String)
       prefix + bech32DataLength + bech32String
-    } else { "" }
+    } else {
+      ""
+    }
   }
 
   def fromHexToBase32(hex: String): Seq[UInt8] = {
@@ -92,26 +98,11 @@ sealed abstract class LnInvoiceTags {
     Bech32Address.encodeToString(Seq(UInt8(quotient.toShort), UInt8(remainder.toShort)))
   }
 
-  /**
-   * This defines the necessary Lightning Network Tag Prefix's, as specified in BOLT-11
-   * Please see: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
-   */
-  object LnTagPrefix extends Enumeration {
-    val PaymentHash = "p"
-    val Description = "d"
-    val SignaturePubKey = "n"
-    val DescriptionHash = "h"
-    val ExpiryTime = "x"
-    val CltvExpiry = "c"
-    val FallbackAddress = "f"
-    val RoutingInfo = "r"
-    val None = ""
-  }
 }
 
-case class InvoiceTags(paymentHash: String, description: Option[String], signaturePubKey: Option[String],
-  descriptionHash: Option[String], expiryTime: Option[UInt64], cltvExpiry: Option[UInt64],
-  fallbackAddress: Option[(Int, String)], routingInfo: Option[Seq[LnRoutingInfo]]) extends LnInvoiceTags {
+case class InvoiceTags(paymentHash: Sha256Digest, description: Option[String], spk: Option[ScriptPubKey],
+  descriptionHash: Option[Sha256Digest], expiryTime: Option[UInt64], cltvExpiry: Option[UInt64],
+  fallbackAddress: Option[(Int, String)], routingInfo: Option[Vector[LnRoutingInfo]]) extends LnInvoiceTags {
   require(
     (description.nonEmpty && description.get.length < 640) || descriptionHash.nonEmpty,
     "You must supply either a description hash, or a literal description that is 640 characters or less to create an invoice.")

@@ -1,6 +1,6 @@
 package org.bitcoins.core.protocol.ln
 
-import org.bitcoins.core.crypto.ECDigitalSignature
+import org.bitcoins.core.crypto.{ ECDigitalSignature, Sha256Digest }
 import org.bitcoins.core.number.UInt64
 import org.bitcoins.core.protocol.ln.LnParams.LnBitcoinMainNet
 import org.scalatest.{ FlatSpec, MustMatchers }
@@ -16,7 +16,7 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
   it must "parse BOLT11 example 1" in {
     //BOLT11 Example #1
     val lnTags = InvoiceTags(
-      "0001020304050607080900010203040506070809000102030405060708090102",
+      Sha256Digest.fromHex("0001020304050607080900010203040506070809000102030405060708090102"),
       Some("Please consider supporting this project"), None, None, None, None, None, None)
 
     Invoice(hrpEmpty, time, lnTags,
@@ -26,7 +26,7 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
   it must "parse BOLT11 example 2" in {
     //BOLT11 Example #2
     val lnTags = InvoiceTags(
-      "0001020304050607080900010203040506070809000102030405060708090102",
+      Sha256Digest.fromHex("0001020304050607080900010203040506070809000102030405060708090102"),
       Some("1 cup coffee"), None, None, Some(UInt64(60)), None, None, None)
 
     Invoice(hrpMicro, time, lnTags,
@@ -36,7 +36,7 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
   it must "parse BOLT11 example 3" in {
     //BOLT11 Example #3 - Description field does not encode correctly due to Japanese letters
     val lnTags = InvoiceTags(
-      "0001020304050607080900010203040506070809000102030405060708090102",
+      Sha256Digest.fromHex("0001020304050607080900010203040506070809000102030405060708090102"),
       Some("ナンセンス 1杯"), None, None, Some(UInt64(60)), None, None, None)
 
     Invoice(hrpMicro, time, lnTags,
@@ -46,8 +46,8 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
   it must "parse BOLT11 example 4" in {
     //BOLT11 Example #4
     val lnTags = InvoiceTags(
-      "0001020304050607080900010203040506070809000102030405060708090102", None, None,
-      Some("3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1"), None,
+      Sha256Digest.fromHex("0001020304050607080900010203040506070809000102030405060708090102"), None, None,
+      Some(Sha256Digest.fromHex("3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1")), None,
       None, None, None)
 
     Invoice(hrpMilli, time, lnTags,
@@ -57,8 +57,8 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
   it must "parse BOLT11 example 5" in {
     //BOLT11 Example #5
     val lnTags = InvoiceTags(
-      "0001020304050607080900010203040506070809000102030405060708090102", None, None,
-      Some("3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1"), None,
+      Sha256Digest.fromHex("0001020304050607080900010203040506070809000102030405060708090102"), None, None,
+      Some(Sha256Digest.fromHex("3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1")), None,
       None, Some(3, "71d7daf61a4972a083f98cee48f05ed9090cdd9e"), None)
 
     Invoice(hrpMilli, time, lnTags,

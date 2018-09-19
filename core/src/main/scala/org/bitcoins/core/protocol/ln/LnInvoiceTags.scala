@@ -1,7 +1,7 @@
 package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.crypto.Sha256Digest
-import org.bitcoins.core.protocol.Bech32Address
+import org.bitcoins.core.protocol.{ Bech32Address, BitcoinAddress }
 import org.bitcoins.core.util.BitcoinSUtil
 import org.bitcoins.core.number.{ UInt64, UInt8 }
 import org.bitcoins.core.protocol.script.ScriptPubKey
@@ -19,8 +19,8 @@ sealed abstract class LnInvoiceTags {
 
   def cltvExpiry: Option[UInt64]
 
-  type fallbackAddress = (Int, String)
-  def fallbackAddress: Option[fallbackAddress] //TODO: Not implemented
+  type fallbackAddress = (Int, BitcoinAddress)
+  def fallbackAddress: Option[fallbackAddress]
 
   def routingInfo: Option[Vector[LnRoutingInfo]] //TODO: Not implemented
 
@@ -32,9 +32,20 @@ sealed abstract class LnInvoiceTags {
       fromHexStrToBech32(LnTagPrefix.SignaturePubKey, spk.map(_.hex).getOrElse("")) +
       fromHexStrToBech32(LnTagPrefix.DescriptionHash, descriptionHash.map(_.hex).getOrElse("")) +
       fromUInt64toBech32(LnTagPrefix.ExpiryTime, expiryTime) +
-      fromUInt64toBech32(LnTagPrefix.CltvExpiry, cltvExpiry)
-    //TODO: Add fallBackAddress
+      fromUInt64toBech32(LnTagPrefix.CltvExpiry, cltvExpiry) +
+      fallbackAddressBech32(fallbackAddress)
     //TODO: Add routingInfo
+  }
+
+  def fallbackAddressBech32(input: Option[fallbackAddress]): String = {
+    if (input.isDefined) {
+      val uInt8Array = uInt64ToBase32(UInt64(input.get._1)) ++ fromHexToBase32(input.get._2.hash.hex)
+      val bech32String = Bech32Address.encodeToString(uInt8Array)
+      val bech32DataLength = bech32EncodeDataLength(bech32String)
+      LnTagPrefix.FallbackAddress + bech32DataLength + bech32String
+    } else {
+      ""
+    }
   }
 
   def fromStringToBech32(prefix: LnTagPrefix, tag: String): String = {
@@ -102,7 +113,7 @@ sealed abstract class LnInvoiceTags {
 
 case class InvoiceTags(paymentHash: Sha256Digest, description: Option[String], spk: Option[ScriptPubKey],
   descriptionHash: Option[Sha256Digest], expiryTime: Option[UInt64], cltvExpiry: Option[UInt64],
-  fallbackAddress: Option[(Int, String)], routingInfo: Option[Vector[LnRoutingInfo]]) extends LnInvoiceTags {
+  fallbackAddress: Option[(Int, BitcoinAddress)], routingInfo: Option[Vector[LnRoutingInfo]]) extends LnInvoiceTags {
   require(
     (description.nonEmpty && description.get.length < 640) || descriptionHash.nonEmpty,
     "You must supply either a description hash, or a literal description that is 640 characters or less to create an invoice.")

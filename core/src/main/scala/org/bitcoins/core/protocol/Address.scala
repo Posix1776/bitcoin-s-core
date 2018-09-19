@@ -77,7 +77,7 @@ sealed abstract class Bech32Address extends BitcoinAddress {
   override def value: String = {
     val checksum = Bech32Address.createChecksum(hrp, data)
     val all = data ++ checksum
-    val encoding = Bech32.encodeToString(all)
+    val encoding = Bech32.encode5bitToString(all)
 
     hrp.toString + Bech32.separator + encoding
   }
@@ -113,7 +113,7 @@ object Bech32Address extends AddressFactory[Bech32Address] {
       case _: TestNet3 | _: RegTest => tb
     }
     val witVersion = witSPK.witnessVersion.version.toLong.toShort
-    encoded.map(e => Bech32Address(hrp, Vector(UInt8(witVersion)) ++ e))
+    Try(Bech32Address(hrp, Vector(UInt8(witVersion)) ++ encoded))
   }
 
   def apply(hrp: HumanReadablePart, data: Vector[UInt8]): Bech32Address = {

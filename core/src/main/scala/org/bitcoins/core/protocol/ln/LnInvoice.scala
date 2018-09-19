@@ -35,15 +35,17 @@ sealed abstract class LnInvoice {
 
   private def hexToBase32(hex: String): Vector[UInt8] = {
     val byteArray = BitcoinSUtil.decodeHex(hex)
-    Bech32.from8bitTo5bit(byteArray).get
+    Bech32.from8bitTo5bit(byteArray)
   }
 
-  private def bech32TimeStamp: String = Bech32.encodeToString(uInt64ToBase32(timestamp))
+  private def bech32TimeStamp: String = {
+    Bech32.encode5bitToString(uInt64ToBase32(timestamp))
+  }
 
   private def bech32Signature: String = {
     val signatureHex = signature._1.hex + "%02d".format(signature._2) //Append version information
     val signatureBase32 = hexToBase32(signatureHex)
-    Bech32.encodeToString(signatureBase32)
+    Bech32.encode5bitToString(signatureBase32)
   }
 
   override def toString: String = {

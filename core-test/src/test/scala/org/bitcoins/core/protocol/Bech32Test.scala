@@ -88,25 +88,26 @@ class Bech32Test extends FlatSpec with MustMatchers {
   it must "encode base 8 to base 5" in {
     val z = UInt8.zero
     val encoded = Bech32.from8bitTo5bit(Vector(z))
-    encoded.map(Bech32.encodeToString(_)) must be(Success("qq"))
+    Bech32.encode5bitToString(encoded) must be("qq")
 
     val encoded1 = Bech32.from8bitTo5bit(Vector(z, UInt8.one))
-    encoded1 must be(Success(Seq(z, z, z, UInt8(16.toShort))))
+    encoded1 must be(Seq(z, z, z, UInt8(16.toShort)))
     //130.toByte == -126
     val encoded2 = Bech32.from8bitTo5bit(Vector(130).map(i => UInt8(i.toShort)))
-    encoded2 must be(Success(Seq(16, 8).map(i => UInt8(i.toShort))))
+    encoded2 must be(Seq(16, 8).map(i => UInt8(i.toShort)))
 
     //130.toByte == -126
     val encoded3 = Bech32.from8bitTo5bit(Vector(255, 255).map(i => UInt8(i.toShort)))
-    encoded3 must be(Success(Seq(31, 31, 31, 16).map(i => UInt8(i.toShort))))
+    encoded3 must be(Seq(31, 31, 31, 16).map(i => UInt8(i.toShort)))
 
     val encoded4 = Bech32.from8bitTo5bit(Vector(255, 255, 255, 255).map(i => UInt8(i.toShort)))
-    encoded4 must be(Success(Seq(31, 31, 31, 31, 31, 31, 24).map(i => UInt8(i.toShort))))
+    encoded4 must be(Seq(31, 31, 31, 31, 31, 31, 24).map(i => UInt8(i.toShort)))
 
     val encoded5 = Bech32.from8bitTo5bit(Vector(255, 255, 255, 255, 255).map(i => UInt8(i.toShort)))
-    encoded5 must be(Success(Seq(31, 31, 31, 31, 31, 31, 31, 31).map(i => UInt8(i.toShort))))
+    encoded5 must be(Seq(31, 31, 31, 31, 31, 31, 31, 31).map(i => UInt8(i.toShort)))
 
     val encoded6 = Bech32.from8bitTo5bit(Vector(255, 255, 255, 255, 255, 255).map(i => UInt8(i.toShort)))
-    encoded6 must be(Success(Seq(31, 31, 31, 31, 31, 31, 31, 31, 31, 28).map(i => UInt8(i.toShort))))
+
+    encoded6 must be(Seq(31, 31, 31, 31, 31, 31, 31, 31, 31, 28).map(i => UInt8(i.toShort)))
   }
 }

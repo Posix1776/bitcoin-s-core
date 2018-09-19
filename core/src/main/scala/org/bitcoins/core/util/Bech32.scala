@@ -1,6 +1,7 @@
 package org.bitcoins.core.util
 
 import org.bitcoins.core.number.{ UInt32, UInt8 }
+import org.slf4j.LoggerFactory
 import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
@@ -12,6 +13,8 @@ import scala.util.{ Failure, Success, Try }
  * [[https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki]]
  */
 sealed abstract class Bech32 {
+
+  private val logger = LoggerFactory.getLogger(this.getClass.getSimpleName)
 
   /** Separator used to separate the hrp & data parts of a bech32 addr */
   val separator = '1'
@@ -29,6 +32,7 @@ sealed abstract class Bech32 {
 
   private val u32Five = UInt32(5)
   private val u32Eight = UInt32(8)
+  private val u8ThirtyTwo = UInt8(32)
 
   /**
    * Creates a checksum for the given byte vector according to BIP173
@@ -109,25 +113,57 @@ sealed abstract class Bech32 {
     payload
   }
 
-  /** Takes a base32 byte array and encodes it to a string */
-  def encodeToString(b: Vector[UInt8]): String = {
+  /**
+   * Converts a byte vector to 5bit vector
+   * and then serializes to bech32
+   */
+  def encode8bitToString(bytes: ByteVector): String = {
+    val vec = UInt8.toUInt8s(bytes)
+    encode5bitToString(vec)
+  }
+
+  /**
+   * Converts a byte vector to 5bit vector
+   * and then serializes to bech32
+   */
+  def encode8bitToString(bytes: Vector[UInt8]): String = {
+    val b = from8bitTo5bit(bytes)
+    encode5bitToString(b)
+  }
+
+  /** Takes a bech32 5bit array and encodes it to a string */
+  def encode5bitToString(b: Vector[UInt8]): String = {
+    require(!b.exists(_ >= u8ThirtyTwo), s"Number out of bech32 range in vector $b")
     b.map(b => charset(b.toInt)).mkString
   }
 
-  /** Converts a byte vector from base 8 to base 5 */
-  def from8bitTo5bit(bytes: ByteVector): Try[Vector[UInt8]] = {
+  /** Converts a byte vector from 8bits to 5bits */
+  def from8bitTo5bit(bytes: ByteVector): Vector[UInt8] = {
     val u8s = UInt8.toUInt8s(bytes)
     from8bitTo5bit(u8s)
   }
 
-  /** Converts a byte array from base 8 to base 5 */
-  def from8bitTo5bit(bytes: Vector[UInt8]): Try[Vector[UInt8]] = {
-    NumberUtil.convertUInt8s(bytes, u32Eight, u32Five, true)
+  /** Converts a byte array from 8bits to base 5 bits */
+  def from8bitTo5bit(bytes: Vector[UInt8]): Vector[UInt8] = {
+    val vecTry = NumberUtil.convertUInt8s(bytes, u32Eight, u32Five, true)
+
+    //should always be valid to decode base 8 to base 5
+    handleEncodeTry(vecT = vecTry)
   }
 
-  /** Decodes a byte array from base 5 to base 8 */
+  /** Decodes a byte array from 5bits to base 8bits */
   def from5bitTo8bit(b: Vector[UInt8]): Try[Vector[UInt8]] = {
     NumberUtil.convertUInt8s(b, u32Five, u32Eight, false)
+  }
+
+  private def handleEncodeTry(vecT: Try[Vector[UInt8]]): Vector[UInt8] = {
+    //should always be able to encode a hex string to bech32
+    vecT match {
+      case Success(vec) => vec
+      case Failure(err) =>
+        logger.error(s"Failed to encode a hex string to bech32. Hex: ${vecT} err: ${err.getMessage}")
+        throw err
+    }
   }
 
 }

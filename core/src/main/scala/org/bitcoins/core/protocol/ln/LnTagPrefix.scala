@@ -19,7 +19,8 @@ object LnTagPrefix {
     override def value: String = "d"
   }
 
-  case object SignaturePubKey extends LnTagPrefix {
+  /** The nodeId of the node paying the invoice */
+  case object NodeId extends LnTagPrefix {
     override def value: String = "n"
   }
 
@@ -48,7 +49,7 @@ object LnTagPrefix {
   }
 
   private val all = List(
-    PaymentHash, Description, SignaturePubKey,
+    PaymentHash, Description, NodeId,
     DescriptionHash, ExpiryTime, CltvExpiry,
     FallbackAddress, RoutingInfo, None)
 

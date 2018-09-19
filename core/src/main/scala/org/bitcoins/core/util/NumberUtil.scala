@@ -72,11 +72,12 @@ trait NumberUtil extends BitcoinSLogger {
     var ret: Vector[UInt8] = Vector.empty
     val maxv: UInt32 = (UInt32.one << to) - UInt32.one
     val eight = UInt32(8)
+    val fromU8 = UInt8(from.toLong.toShort)
     if (from > eight || to > eight) {
       Failure(new IllegalArgumentException("Can't have convert bits 'from' or 'to' parameter greater than 8"))
     } else {
       data.map { h =>
-        if ((h >> UInt8(from.toLong.toShort)) != UInt8.zero) {
+        if ((h >> fromU8) != UInt8.zero) {
           Failure(new IllegalArgumentException("Invalid input for bech32: " + h))
         } else {
           acc = (acc << from) | UInt32(h.toLong)

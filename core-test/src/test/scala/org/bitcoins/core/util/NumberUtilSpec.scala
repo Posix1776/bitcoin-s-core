@@ -32,7 +32,7 @@ class NumberUtilSpec extends Properties("NumberUtilSpec") {
         //but the trick is we need to make sure that the u8s generated are valid numbers in the 'from' base
         val u32From = UInt32(8.toShort)
         val u32To = UInt32(to.toShort)
-        val converted = NumberUtil.convertUInt8s(u8s, u32From, u32To, true)
+        val converted = NumberUtil.convertUInt8s(u8s.toVector, u32From, u32To, true)
         val original = converted.flatMap(c => NumberUtil.convertUInt8s(c, u32To, u32From, false))
         if (original.isFailure) {
           throw original.failed.get

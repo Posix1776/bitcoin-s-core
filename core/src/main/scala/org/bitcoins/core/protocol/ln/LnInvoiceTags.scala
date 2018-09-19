@@ -2,9 +2,10 @@ package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.crypto.Sha256Digest
 import org.bitcoins.core.protocol.{ Bech32Address, BitcoinAddress }
-import org.bitcoins.core.util.BitcoinSUtil
+import org.bitcoins.core.util.{ Bech32, BitcoinSUtil }
 import org.bitcoins.core.number.{ UInt64, UInt8 }
 import org.bitcoins.core.protocol.script.ScriptPubKey
+import scodec.bits.ByteVector
 
 sealed abstract class LnInvoiceTags {
   def paymentHash: Sha256Digest
@@ -40,7 +41,7 @@ sealed abstract class LnInvoiceTags {
   def fallbackAddressBech32(input: Option[fallbackAddress]): String = {
     if (input.isDefined) {
       val uInt8Array = uInt64ToBase32(UInt64(input.get._1)) ++ fromHexToBase32(input.get._2.hash.hex)
-      val bech32String = Bech32Address.encodeToString(uInt8Array)
+      val bech32String = Bech32.encodeToString(uInt8Array)
       val bech32DataLength = bech32EncodeDataLength(bech32String)
       LnTagPrefix.FallbackAddress + bech32DataLength + bech32String
     } else {
@@ -50,9 +51,9 @@ sealed abstract class LnInvoiceTags {
 
   def fromStringToBech32(prefix: LnTagPrefix, tag: String): String = {
     if (!tag.isEmpty) {
-      val uInt8Array = tag.map(a => a.toByte).map(i => UInt8(toUnsignedByte(i).toShort))
-      val base32Array = Bech32Address.encode(uInt8Array)
-      val bech32String = Bech32Address.encodeToString(base32Array.get)
+      val byteVec = ByteVector(tag.map(a => a.toByte))
+      val base32Array = Bech32.from8bitTo5bit(byteVec)
+      val bech32String = Bech32.encodeToString(base32Array.get)
       val bech32DataLength = bech32EncodeDataLength(bech32String)
       prefix.value + bech32DataLength + bech32String
     } else { "" }
@@ -61,7 +62,7 @@ sealed abstract class LnInvoiceTags {
   def fromHexStrToBech32(prefix: LnTagPrefix, tag: String): String = {
     if (!tag.isEmpty) {
       val uInt8Array = fromHexToBase32(tag)
-      val bech32String = Bech32Address.encodeToString(uInt8Array)
+      val bech32String = Bech32.encodeToString(uInt8Array)
       val bech32DataLength = bech32EncodeDataLength(bech32String)
       prefix.toString + bech32DataLength + bech32String
     } else {
@@ -72,7 +73,7 @@ sealed abstract class LnInvoiceTags {
   def fromUInt64toBech32(prefix: LnTagPrefix, tag: Option[UInt64]): String = {
     if (tag.isDefined) {
       val uInt8Array = uInt64ToBase32(tag.get)
-      val bech32String = Bech32Address.encodeToString(uInt8Array)
+      val bech32String = Bech32.encodeToString(uInt8Array)
       val bech32DataLength = bech32EncodeDataLength(bech32String)
       prefix + bech32DataLength + bech32String
     } else {
@@ -80,19 +81,19 @@ sealed abstract class LnInvoiceTags {
     }
   }
 
-  def fromHexToBase32(hex: String): Seq[UInt8] = {
-    val byteArr = BitcoinSUtil.decodeHex(hex).toSeq.map(b => UInt8(toUnsignedByte(b)))
-    Bech32Address.encode(byteArr).get
+  def fromHexToBase32(hex: String): Vector[UInt8] = {
+    val byteArr = BitcoinSUtil.decodeHex(hex)
+    UInt8.toUInt8s(byteArr)
   }
 
   //TODO: Refactor Into Bech32Address?
-  def uInt64ToBase32(input: UInt64): Seq[UInt8] = {
+  def uInt64ToBase32(input: UInt64): Vector[UInt8] = {
     //To fit an UInt64 value, we need at most ceil(64 / 5) = 13 groups of 5 bits.
     val arr: Array[Int] = new Array[Int](13)
     for (x <- 0 to 12) {
       arr(x) = (input >> x * 5 & UInt64(0x1F)).toInt.toByte
     }
-    arr.reverse.dropWhile(_ == 0).map(b => UInt8(b))
+    arr.reverse.dropWhile(_ == 0).map(b => UInt8(b)).toVector
   }
 
   /**
@@ -106,7 +107,8 @@ sealed abstract class LnInvoiceTags {
   def bech32EncodeDataLength(Bech32EncodedString: String): String = {
     val quotient = Bech32EncodedString.length / 32
     val remainder = Bech32EncodedString.length % 32
-    Bech32Address.encodeToString(Seq(UInt8(quotient.toShort), UInt8(remainder.toShort)))
+    val v = Vector(UInt8(quotient.toShort), UInt8(remainder.toShort))
+    Bech32.encodeToString(v)
   }
 
 }

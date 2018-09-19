@@ -70,15 +70,16 @@ sealed abstract class Bech32Address extends BitcoinAddress {
 
   def hrp: HumanReadablePart
 
-  def data: Seq[UInt8]
+  def data: Vector[UInt8]
 
   override def networkParameters = hrp.network.get
 
   override def value: String = {
     val checksum = Bech32Address.createChecksum(hrp, data)
     val all = data ++ checksum
-    val encoding = Bech32Address.encodeToString(all)
-    hrp.toString + Bech32Address.separator + encoding
+    val encoding = Bech32.encodeToString(all)
+
+    hrp.toString + Bech32.separator + encoding
   }
 
   override def scriptPubKey: WitnessScriptPubKey = {
@@ -95,12 +96,9 @@ sealed abstract class Bech32Address extends BitcoinAddress {
 }
 
 object Bech32Address extends AddressFactory[Bech32Address] {
-  private case class Bech32AddressImpl(hrp: HumanReadablePart, data: Seq[UInt8]) extends Bech32Address {
+  private case class Bech32AddressImpl(hrp: HumanReadablePart, data: Vector[UInt8]) extends Bech32Address {
     verifyChecksum(hrp, UInt8.toBytes(data))
   }
-
-  /** Separator used to separate the hrp & data parts of a bech32 addr */
-  val separator = '1'
 
   private val logger = BitcoinSLogger.logger
 
@@ -109,66 +107,27 @@ object Bech32Address extends AddressFactory[Bech32Address] {
     networkParameters: NetworkParameters): Try[Bech32Address] = {
     //we don't encode the wit version or pushop for program into base5
     val prog = UInt8.toUInt8s(witSPK.asmBytes.tail.tail)
-    val encoded = Bech32Address.encode(prog)
+    val encoded = Bech32.from8bitTo5bit(prog)
     val hrp = networkParameters match {
       case _: MainNet => bc
       case _: TestNet3 | _: RegTest => tb
     }
     val witVersion = witSPK.witnessVersion.version.toLong.toShort
-    encoded.map(e => Bech32Address(hrp, Seq(UInt8(witVersion)) ++ e))
+    encoded.map(e => Bech32Address(hrp, Vector(UInt8(witVersion)) ++ e))
   }
 
-  def apply(hrp: HumanReadablePart, data: Seq[UInt8]): Bech32Address = {
+  def apply(hrp: HumanReadablePart, data: Vector[UInt8]): Bech32Address = {
     Bech32AddressImpl(hrp, data)
   }
 
   /** Returns a base 5 checksum as specified by BIP173 */
-  def createChecksum(hrp: HumanReadablePart, bytes: Seq[UInt8]): Seq[UInt8] = {
-    val values: Seq[UInt8] = hrpExpand(hrp) ++ bytes
-    val z = UInt8.zero
-    val polymod: Long = polyMod(values ++ Seq(z, z, z, z, z, z)) ^ 1
-    //[(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
-    val result: Seq[UInt8] = 0.until(6).map { i =>
-      val u = UInt8(i.toShort)
-      val five = UInt8(5.toShort)
-      //((polymod >> five * (five - u)) & UInt8(31.toShort))
-      UInt8(((polymod >> 5 * (5 - i)) & 31).toShort)
-    }
-    result
+  def createChecksum(hrp: HumanReadablePart, bytes: Vector[UInt8]): Vector[UInt8] = {
+    val values: Vector[UInt8] = hrpExpand(hrp) ++ bytes
+    Bech32.createChecksum(values)
   }
 
-  def hrpExpand(hrp: HumanReadablePart): Seq[UInt8] = {
-    val x: ByteVector = hrp.bytes.map { b: Byte =>
-      (b >> 5).toByte
-    }
-    val withZero: ByteVector = x ++ ByteVector.low(1)
-
-    val y: ByteVector = hrp.bytes.map { char =>
-      (char & 0x1f).toByte
-    }
-    val result = UInt8.toUInt8s(withZero ++ y)
-    result
-  }
-
-  private def generators: Seq[Long] = Seq(
-    UInt32("3b6a57b2").toLong,
-    UInt32("26508e6d").toLong, UInt32("1ea119fa").toLong,
-    UInt32("3d4233dd").toLong, UInt32("2a1462b3").toLong)
-
-  def polyMod(bytes: Seq[UInt8]): Long = {
-    var chk: Long = 1
-    bytes.map { v =>
-      val b = chk >> 25
-      //chk = (chk & 0x1ffffff) << 5 ^ v
-      chk = (chk & 0x1ffffff) << 5 ^ v.toLong
-      0.until(5).map { i: Int =>
-        //chk ^= GEN[i] if ((b >> i) & 1) else 0
-        if (((b >> i) & 1) == 1) {
-          chk = chk ^ generators(i)
-        }
-      }
-    }
-    chk
+  def hrpExpand(hrp: HumanReadablePart): Vector[UInt8] = {
+    Bech32.hrpExpand(hrp.bytes)
   }
 
   def verifyChecksum(hrp: HumanReadablePart, data: ByteVector): Boolean = {
@@ -177,20 +136,13 @@ object Bech32Address extends AddressFactory[Bech32Address] {
   }
 
   def verifyCheckSum(hrp: HumanReadablePart, u8s: Seq[UInt8]): Boolean = {
-    polyMod(hrpExpand(hrp) ++ u8s) == 1
+    val data = hrpExpand(hrp) ++ u8s
+    val checksum = Bech32.polyMod(data)
+    checksum == 1
   }
 
   private val u32Five = UInt32(5)
   private val u32Eight = UInt32(8)
-
-  /** Converts a byte array from base 8 to base 5 */
-  def encode(bytes: Seq[UInt8]): Try[Seq[UInt8]] = {
-    NumberUtil.convertUInt8s(bytes, u32Eight, u32Five, true)
-  }
-  /** Decodes a byte array from base 5 to base 8 */
-  def decodeToBase8(b: Seq[UInt8]): Try[Seq[UInt8]] = {
-    NumberUtil.convertUInt8s(b, u32Five, u32Eight, false)
-  }
 
   /** Tries to convert the given string a to a [[org.bitcoins.core.protocol.script.WitnessScriptPubKey]] */
   def fromStringToWitSPK(string: String): Try[WitnessScriptPubKey] = {
@@ -217,13 +169,9 @@ object Bech32Address extends AddressFactory[Bech32Address] {
     }
   }
 
-  /** Takes a base32 byte array and encodes it to a string */
-  def encodeToString(b: Seq[UInt8]): String = {
-    b.map(b => charset(b.toInt)).mkString
-  }
   /** Decodes bech32 string to the [[HumanReadablePart]] & data part */
   override def fromString(str: String): Try[Bech32Address] = {
-    val sepIndexes = str.zipWithIndex.filter(_._1 == separator)
+    val sepIndexes = str.zipWithIndex.filter(_._1 == Bech32.separator)
     if (str.size > 90 || str.size < 8) {
       Failure(new IllegalArgumentException("bech32 payloads must be betwee 8 and 90 chars, got: " + str.size))
     } else if (sepIndexes.isEmpty) {
@@ -235,7 +183,7 @@ object Bech32Address extends AddressFactory[Bech32Address] {
         Failure(new IllegalArgumentException("Hrp/data too short"))
       } else {
         val hrpValid = checkHrpValidity(hrp)
-        val dataValid = checkDataValidity(data)
+        val dataValid = Bech32.checkDataValidity(data)
         val isChecksumValid: Try[ByteVector] = hrpValid.flatMap { h =>
           dataValid.flatMap { d =>
             if (verifyChecksum(h, d)) {
@@ -287,37 +235,6 @@ object Bech32Address extends AddressFactory[Bech32Address] {
     }
   }
 
-  /**
-   * Takes in the data portion of a bech32 address and decodes it to a byte array
-   * It also checks the validity of the data portion according to BIP173
-   */
-  def checkDataValidity(data: String): Try[ByteVector] = {
-    @tailrec
-    def loop(remaining: List[Char], accum: ByteVector, hasUpper: Boolean, hasLower: Boolean): Try[ByteVector] = remaining match {
-      case Nil => Success(accum.reverse)
-      case h :: t =>
-        if (!charset.contains(h.toLower)) {
-          Failure(new IllegalArgumentException("Invalid character in data of bech32 address, got: " + h))
-        } else {
-          if ((h.isUpper && hasLower) || (h.isLower && hasUpper)) {
-            Failure(new IllegalArgumentException("Cannot have mixed case for bech32 address"))
-          } else {
-            val byte = charset.indexOf(h.toLower).toByte
-            require(byte >= 0 && byte < 32, "Not in valid range, got: " + byte)
-            loop(t, byte +: accum, h.isUpper || hasUpper, h.isLower || hasLower)
-          }
-        }
-    }
-    val payload: Try[ByteVector] = loop(data.toCharArray.toList, ByteVector.empty,
-      false, false)
-    payload
-  }
-
-  /** https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32 */
-  val charset: Seq[Char] = Seq('q', 'p', 'z', 'r', 'y', '9', 'x', '8',
-    'g', 'f', '2', 't', 'v', 'd', 'w', '0',
-    's', '3', 'j', 'n', '5', '4', 'k', 'h',
-    'c', 'e', '6', 'm', 'u', 'a', '7', 'l')
 }
 
 object P2PKHAddress extends AddressFactory[P2PKHAddress] {

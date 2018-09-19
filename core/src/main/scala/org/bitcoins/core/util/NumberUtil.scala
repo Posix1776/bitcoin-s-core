@@ -66,10 +66,10 @@ trait NumberUtil extends BitcoinSLogger {
   def toLong(hex: String): Long = toLong(BitcoinSUtil.decodeHex(hex))
 
   /** Converts a sequence uint8 'from' base to 'to' base */
-  def convertUInt8s(data: Seq[UInt8], from: UInt32, to: UInt32, pad: Boolean): Try[Seq[UInt8]] = {
+  def convertUInt8s(data: Vector[UInt8], from: UInt32, to: UInt32, pad: Boolean): Try[Vector[UInt8]] = {
     var acc: UInt32 = UInt32.zero
     var bits: UInt32 = UInt32.zero
-    var ret: Seq[UInt8] = Nil
+    var ret: Vector[UInt8] = Vector.empty
     val maxv: UInt32 = (UInt32.one << to) - UInt32.one
     val eight = UInt32(8)
     if (from > eight || to > eight) {
@@ -83,7 +83,7 @@ trait NumberUtil extends BitcoinSLogger {
           bits = bits + from
           while (bits >= to) {
             bits = bits - to
-            val r: Seq[UInt8] = Seq(UInt8((((acc >> bits) & maxv).toInt.toShort)))
+            val r: Vector[UInt8] = Vector(UInt8((((acc >> bits) & maxv).toInt.toShort)))
             ret = ret ++ r
           }
         }
@@ -101,7 +101,7 @@ trait NumberUtil extends BitcoinSLogger {
     }
   }
 
-  def convertBytes(data: ByteVector, from: UInt32, to: UInt32, pad: Boolean): Try[Seq[UInt8]] = {
+  def convertBytes(data: ByteVector, from: UInt32, to: UInt32, pad: Boolean): Try[Vector[UInt8]] = {
     convertUInt8s(UInt8.toUInt8s(data), from, to, pad)
   }
 }

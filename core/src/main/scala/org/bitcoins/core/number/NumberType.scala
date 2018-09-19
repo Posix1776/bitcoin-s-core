@@ -200,8 +200,8 @@ object UInt8 extends Factory[UInt8] with BaseNumbers[UInt8] {
     ByteVector(us.map(toByte(_)))
   }
 
-  def toUInt8s(bytes: ByteVector): Seq[UInt8] = {
-    bytes.toSeq.map { b: Byte => toUInt8(b) }
+  def toUInt8s(bytes: ByteVector): Vector[UInt8] = {
+    bytes.toArray.map(toUInt8(_)).toVector
   }
 
   def checkBounds(res: BigInt): UInt8 = {

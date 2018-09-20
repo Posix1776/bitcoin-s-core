@@ -16,7 +16,7 @@ sealed abstract class LnInvoice {
 
   def timestamp: UInt64
 
-  def lnTags: LnInvoiceTags
+  def lnTags: LnInvoiceTaggedFields
 
   type Signature = (ECDigitalSignature, Int)
   def signature: Signature
@@ -61,5 +61,5 @@ sealed abstract class LnInvoice {
   }
 }
 
-case class Invoice(hrp: LnHumanReadablePart, timestamp: UInt64, lnTags: LnInvoiceTags,
+case class Invoice(hrp: LnHumanReadablePart, timestamp: UInt64, lnTags: LnInvoiceTaggedFields,
   signature: (ECDigitalSignature, Int)) extends LnInvoice

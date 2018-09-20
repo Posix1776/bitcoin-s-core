@@ -1,7 +1,7 @@
 package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.crypto.{ ECDigitalSignature, Sha256Digest }
-import org.bitcoins.core.number.{ UInt64, UInt8 }
+import org.bitcoins.core.number.{ UInt32, UInt64, UInt8 }
 import org.bitcoins.core.protocol.P2PKHAddress
 import org.bitcoins.core.protocol.ln.LnParams.{ LnBitcoinMainNet, LnBitcoinTestNet }
 import org.scalatest.{ FlatSpec, MustMatchers }
@@ -22,7 +22,7 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
     //BOLT11 Example #1
 
     val descriptionTagE = Left(LnInvoiceTag.DescriptionTag("Please consider supporting this project"))
-    val lnTags = LnInvoiceTags(
+    val lnTags = LnInvoiceTaggedFields(
       paymentHash = paymentTag,
       descriptionOrHash = descriptionTagE,
       None, None, None,
@@ -36,8 +36,8 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
     //BOLT11 Example #2
 
     val descriptionTagE = Left(LnInvoiceTag.DescriptionTag("1 cup coffee"))
-    val expiryTimeTag = LnInvoiceTag.ExpiryTimeTag(UInt64(60))
-    val lnTags = LnInvoiceTags(
+    val expiryTimeTag = LnInvoiceTag.ExpiryTimeTag(UInt32(60))
+    val lnTags = LnInvoiceTaggedFields(
       paymentTag, descriptionTagE, None,
       Some(expiryTimeTag), None,
       None, None)
@@ -50,8 +50,8 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
     //BOLT11 Example #3 - Description field does not encode correctly due to Japanese letters
 
     val descriptionTagE = Left(LnInvoiceTag.DescriptionTag("ナンセンス 1杯"))
-    val expiryTag = LnInvoiceTag.ExpiryTimeTag(UInt64(60))
-    val lnTags = LnInvoiceTags(
+    val expiryTag = LnInvoiceTag.ExpiryTimeTag(UInt32(60))
+    val lnTags = LnInvoiceTaggedFields(
       paymentTag, descriptionTagE, None,
       Some(expiryTag), None, None,
       None)
@@ -65,7 +65,7 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
 
     val descriptionHash = Sha256Digest.fromHex("3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1")
     val descriptionHashTagE = Right(LnInvoiceTag.DescriptionHashTag(descriptionHash))
-    val lnTags = LnInvoiceTags(
+    val lnTags = LnInvoiceTaggedFields(
       paymentHash = paymentTag,
       descriptionOrHash = descriptionHashTagE,
       None, None, None,
@@ -80,9 +80,9 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
 
     val descriptionHash = Sha256Digest.fromHex("3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1")
     val descriptionHashTagE = Right(LnInvoiceTag.DescriptionHashTag(descriptionHash))
-    val fallbackAddr = LnInvoiceTag.FallbackAddressTag(UInt8(17), P2PKHAddress.fromString("mk2QpYatsKicvFVuTAQLBryyccRXMUaGHP").get)
+    val fallbackAddr = LnInvoiceTag.FallbackAddressTag(P2PKHAddress.fromString("mk2QpYatsKicvFVuTAQLBryyccRXMUaGHP").get)
 
-    val lnTags = LnInvoiceTags(
+    val lnTags = LnInvoiceTaggedFields(
       paymentTag, descriptionHashTagE,
       None, None,
       None, Some(fallbackAddr), None)

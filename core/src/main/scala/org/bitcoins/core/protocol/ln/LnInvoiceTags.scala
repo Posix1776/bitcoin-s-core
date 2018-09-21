@@ -1,7 +1,7 @@
 package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.crypto.{ ECPublicKey, Sha256Digest }
-import org.bitcoins.core.number.{ UInt32, UInt8 }
+import org.bitcoins.core.number.{ UInt32, UInt5, UInt8 }
 import org.bitcoins.core.protocol._
 import org.bitcoins.core.protocol.ln.LnInvoiceTag.PaymentHashTag
 import org.bitcoins.core.protocol.ln.routing.LnRoute
@@ -60,10 +60,10 @@ object LnInvoiceTag {
   }
 
   /** Returns a 5bit bytevector with the encoded number for a ln invoice */
-  def encodeNumber(len: Long): ByteVector = {
+  def encodeNumber(len: Long): Vector[UInt5] = {
     val quotient = len / 32
     val remainder = len % 32
-    val v = ByteVector(quotient.toByte, remainder.toByte)
+    val v = Vector(UInt5(quotient.toByte), UInt5(remainder.toByte))
     v
   }
 
@@ -102,12 +102,14 @@ object LnInvoiceTag {
     override val prefix: LnTagPrefix = LnTagPrefix.ExpiryTime
 
     override val bytes: ByteVector = {
-      encodeNumber(u32.toLong)
+      //encodeNumber(u32.toLong)
+      u32.bytes
     }
 
     override def dataToBech32: String = {
       //bytes is already in base5, so need to to decode again
-      Bech32.encode5bitToString(bytes)
+      val u5s = encodeNumber(u32.toLong)
+      Bech32.encode5bitToString(u5s)
     }
   }
 
@@ -121,12 +123,13 @@ object LnInvoiceTag {
     override val prefix: LnTagPrefix = LnTagPrefix.CltvExpiry
 
     override val bytes: ByteVector = {
-      encodeNumber(u32.toLong)
+      u32.bytes
     }
 
     override def dataToBech32: String = {
       //bytes is already in base5, so need to to decode again
-      Bech32.encode5bitToString(bytes)
+      val u5 = encodeNumber(u32.toLong)
+      Bech32.encode5bitToString(u5)
     }
   }
 
@@ -145,14 +148,14 @@ object LnInvoiceTag {
     override val prefix: LnTagPrefix = LnTagPrefix.FallbackAddress
 
     override val bytes: ByteVector = {
-      val b = address.hash.bytes
-      val u5s = UInt8.toByte(version) +: UInt8.toBytes(Bech32.from8bitTo5bit(b))
-      u5s
+      val b = UInt8.toByte(version) +: address.hash.bytes
+      b
     }
 
     override def dataToBech32: String = {
-      //bytes is already in base5, so need to to decode again
-      Bech32.encode5bitToString(bytes)
+      val b = address.hash.bytes
+      val u5s = version.toUInt5 +: Bech32.from8bitTo5bit(b)
+      Bech32.encode5bitToString(u5s)
     }
   }
 
@@ -167,5 +170,4 @@ object LnInvoiceTag {
       serializedRoutes
     }
   }
-
 }

@@ -1,6 +1,6 @@
 package org.bitcoins.core.util
 
-import org.bitcoins.core.number.{ UInt32, UInt8 }
+import org.bitcoins.core.number.{ UInt32, UInt5, UInt8 }
 import org.slf4j.LoggerFactory
 import scodec.bits.{ BitVector, ByteVector }
 
@@ -20,7 +20,8 @@ sealed abstract class Bech32 {
   val separator = '1'
 
   /** https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32 */
-  val charset: Vector[Char] = Vector('q', 'p', 'z', 'r', 'y', '9', 'x', '8',
+  val charset: Vector[Char] = Vector(
+    'q', 'p', 'z', 'r', 'y', '9', 'x', '8',
     'g', 'f', '2', 't', 'v', 'd', 'w', '0',
     's', '3', 'j', 'n', '5', '4', 'k', 'h',
     'c', 'e', '6', 'm', 'u', 'a', '7', 'l')
@@ -37,17 +38,17 @@ sealed abstract class Bech32 {
   /**
    * Creates a checksum for the given byte vector according to BIP173
    * [[https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32]]
-   * @param bytes
+   * @param u5s
    * @return
    */
-  def createChecksum(bytes: Vector[UInt8]): Vector[UInt8] = {
-    val z = UInt8.zero
-    val polymod: Long = polyMod(bytes ++ Array(z, z, z, z, z, z)) ^ 1
+  def createChecksum(u5s: Vector[UInt5]): Vector[UInt5] = {
+    val z = UInt5.zero
+    val polymod: Long = polyMod(u5s ++ Array(z, z, z, z, z, z)) ^ 1
     //[(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
 
-    val result: Vector[UInt8] = 0.until(6).map { i =>
+    val result: Vector[UInt5] = 0.until(6).map { i =>
       //((polymod >> five * (five - u)) & UInt8(31.toShort))
-      UInt8(((polymod >> 5 * (5 - i)) & 31).toShort)
+      UInt5(((polymod >> 5 * (5 - i)) & 31))
     }.toVector
     result
   }
@@ -58,7 +59,7 @@ sealed abstract class Bech32 {
    * @param bytes
    * @return
    */
-  def hrpExpand(bytes: ByteVector): Vector[UInt8] = {
+  def hrpExpand(bytes: ByteVector): Vector[UInt5] = {
     val x: ByteVector = bytes.map { b: Byte =>
       (b >> 5).toByte
     }
@@ -67,11 +68,12 @@ sealed abstract class Bech32 {
     val y: ByteVector = bytes.map { char =>
       (char & 0x1f).toByte
     }
-    val result = UInt8.toUInt8s(withZero ++ y)
-    result
+    val result = withZero ++ y
+
+    UInt5.toUInt5s(result)
   }
 
-  def polyMod(bytes: Seq[UInt8]): Long = {
+  def polyMod(bytes: Vector[UInt5]): Long = {
     var chk: Long = 1
     bytes.map { v =>
       val b = chk >> 25
@@ -91,9 +93,9 @@ sealed abstract class Bech32 {
    * Takes in the data portion of a bech32 address and decodes it to a byte array
    * It also checks the validity of the data portion according to BIP173
    */
-  def checkDataValidity(data: String): Try[ByteVector] = {
+  def checkDataValidity(data: String): Try[Vector[UInt5]] = {
     @tailrec
-    def loop(remaining: List[Char], accum: ByteVector, hasUpper: Boolean, hasLower: Boolean): Try[ByteVector] = remaining match {
+    def loop(remaining: List[Char], accum: Vector[UInt5], hasUpper: Boolean, hasLower: Boolean): Try[Vector[UInt5]] = remaining match {
       case Nil => Success(accum.reverse)
       case h :: t =>
         if (!charset.contains(h.toLower)) {
@@ -104,22 +106,27 @@ sealed abstract class Bech32 {
           } else {
             val byte = charset.indexOf(h.toLower).toByte
             require(byte >= 0 && byte < 32, "Not in valid range, got: " + byte)
-            loop(t, byte +: accum, h.isUpper || hasUpper, h.isLower || hasLower)
+            loop(
+              remaining = t,
+              accum = UInt5.fromByte(byte) +: accum,
+              hasUpper = h.isUpper || hasUpper,
+              hasLower = h.isLower || hasLower)
           }
         }
     }
-    val payload: Try[ByteVector] = loop(data.toCharArray.toList, ByteVector.empty,
+    val payload: Try[Vector[UInt5]] = loop(data.toCharArray.toList, Vector.empty,
       false, false)
+
     payload
   }
 
   /** Encodes a bitvector to a bech32 string */
   def encodeBitVec(bitVec: BitVector): String = {
     @tailrec
-    def loop(remaining: BitVector, accum: Vector[UInt8]): Vector[UInt8] = {
+    def loop(remaining: BitVector, accum: Vector[UInt5]): Vector[UInt5] = {
       if (remaining.length > 5) {
 
-        val u5 = UInt8(remaining.take(5).toByte())
+        val u5 = UInt5(remaining.take(5).toByte())
 
         val newRemaining = remaining.slice(5, remaining.size)
 
@@ -127,7 +134,7 @@ sealed abstract class Bech32 {
 
       } else {
 
-        val u5 = UInt8(remaining.toByte())
+        val u5 = UInt5(remaining.toByte())
 
         accum.:+(u5)
       }
@@ -156,42 +163,35 @@ sealed abstract class Bech32 {
     encode5bitToString(b)
   }
 
-  def encode5bitToString(b: ByteVector): String = {
-    val u8s = UInt8.toUInt8s(b)
-    encode5bitToString(u8s)
-  }
-
   /** Takes a bech32 5bit array and encodes it to a string */
-  def encode5bitToString(b: Vector[UInt8]): String = {
-    require(!b.exists(_ >= u8ThirtyTwo), s"Number out of bech32 range in vector $b")
+  def encode5bitToString(b: Vector[UInt5]): String = {
     b.map(b => charset(b.toInt)).mkString
   }
 
   /** Converts a byte vector from 8bits to 5bits */
-  def from8bitTo5bit(bytes: ByteVector): Vector[UInt8] = {
+  def from8bitTo5bit(bytes: ByteVector): Vector[UInt5] = {
     val u8s = UInt8.toUInt8s(bytes)
-    from8bitTo5bit(u8s)
+    val u5s = NumberUtil.convertUInt8sToUInt5s(u8s)
+    u5s
   }
 
   /** Converts a byte array from 8bits to base 5 bits */
-  def from8bitTo5bit(bytes: Vector[UInt8]): Vector[UInt8] = {
-    val vecTry = NumberUtil.convertUInt8s(bytes, u32Eight, u32Five, true)
-
-    //should always be valid to decode base 8 to base 5
-    handleEncodeTry(vecT = vecTry)
+  def from8bitTo5bit(u8s: Vector[UInt8]): Vector[UInt5] = {
+    val bytes = UInt8.toBytes(u8s)
+    from8bitTo5bit(bytes)
   }
 
   /** Decodes a byte array from 5bits to base 8bits */
-  def from5bitTo8bit(b: Vector[UInt8]): Try[Vector[UInt8]] = {
-    NumberUtil.convertUInt8s(b, u32Five, u32Eight, false)
+  def from5bitTo8bit(b: Vector[UInt5]): Vector[UInt8] = {
+    NumberUtil.convertUInt5sToUInt8(b)
   }
 
-  private def handleEncodeTry(vecT: Try[Vector[UInt8]]): Vector[UInt8] = {
+  private def handleEncodeTry[T](vecT: Try[Vector[T]]): Vector[T] = {
     //should always be able to encode a hex string to bech32
     vecT match {
       case Success(vec) => vec
       case Failure(err) =>
-        logger.error(s"Failed to encode a hex string to bech32. Hex: ${vecT} err: ${err.getMessage}")
+        logger.error(s"Failed to encode a vec to bech32. Vec: ${vecT} err: ${err.getMessage}")
         throw err
     }
   }

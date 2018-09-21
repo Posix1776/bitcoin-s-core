@@ -1,6 +1,7 @@
 package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.config.{ MainNet, NetworkParameters, RegTest, TestNet3 }
+import org.bitcoins.core.number.UInt5
 import org.bitcoins.core.protocol.blockchain.ChainParams
 import scodec.bits.ByteVector
 
@@ -19,7 +20,7 @@ sealed abstract class LnParams {
    * [[https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md]]
    * @return
    */
-  def invoicePrefix: ByteVector
+  def invoicePrefix: Vector[UInt5]
 }
 
 object LnParams {
@@ -31,8 +32,8 @@ object LnParams {
 
     override def lnPort = 9735
 
-    override def invoicePrefix: ByteVector = {
-      ByteVector('l', 'n', 'b', 'c')
+    override val invoicePrefix: Vector[UInt5] = {
+      Vector('l', 'n', 'b', 'c').map(c => UInt5.fromByte(c.toByte))
     }
   }
 
@@ -43,8 +44,8 @@ object LnParams {
 
     override def lnPort = 9735
 
-    override def invoicePrefix: ByteVector = {
-      ByteVector('l', 'n', 't', 'b')
+    override val invoicePrefix: Vector[UInt5] = {
+      Vector('l', 'n', 't', 'b').map(c => UInt5.fromByte(c.toByte))
     }
   }
 
@@ -55,8 +56,8 @@ object LnParams {
 
     override def lnPort = 9735
 
-    override def invoicePrefix: ByteVector = {
-      ByteVector('l', 'n', 'b', 'c', 'r', 't')
+    override val invoicePrefix: Vector[UInt5] = {
+      Vector('l', 'n', 'b', 'c', 'r', 't').map(c => UInt5.fromByte(c.toByte))
     }
   }
 
@@ -69,7 +70,7 @@ object LnParams {
   private val prefixes: Map[String, LnParams] = {
     val vec: Vector[(String, LnParams)] = {
       allNetworks.map { network =>
-        (network.invoicePrefix.decodeAscii.right.get, network)
+        (network.invoicePrefix.map(_.byte.toChar).mkString, network)
       }
     }
     vec.toMap

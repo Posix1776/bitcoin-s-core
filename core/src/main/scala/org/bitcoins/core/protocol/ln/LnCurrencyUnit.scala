@@ -1,8 +1,9 @@
 package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.currency.{ Bitcoins, Satoshis }
-import org.bitcoins.core.number.{ BaseNumbers, Int64 }
+import org.bitcoins.core.number.{ BaseNumbers, Int64, UInt5, UInt8 }
 import org.bitcoins.core.protocol.NetworkElement
+import org.bitcoins.core.util.Bech32
 import scodec.bits.ByteVector
 
 import scala.math.BigDecimal.RoundingMode
@@ -52,6 +53,11 @@ sealed abstract class LnCurrencyUnit extends NetworkElement {
   }
 
   override def bytes: ByteVector = Int64(toPicoBitcoinValue).bytes.reverse
+
+  def fiveBitEncoding: Vector[UInt5] = {
+    val u5s = Bech32.from8bitTo5bit(bytes)
+    u5s
+  }
 
   def toBigInt: BigInt
 

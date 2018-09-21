@@ -1,7 +1,10 @@
 package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.config.NetworkParameters
+import org.bitcoins.core.number.UInt5
+import org.bitcoins.core.protocol.NetworkElement
 import org.bitcoins.core.protocol.ln.LnParams._
+import scodec.bits.ByteVector
 
 import scala.util.matching.Regex
 import scala.util.{ Failure, Success, Try }
@@ -18,9 +21,13 @@ sealed abstract class LnHumanReadablePart {
 
   def amount: Option[LnCurrencyUnit]
 
+  def bytes: Vector[UInt5] = {
+    network.invoicePrefix ++ amount.map(_.fiveBitEncoding).getOrElse(Vector.empty)
+  }
+
   override def toString: String = {
     val b = StringBuilder.newBuilder
-    val prefix = network.invoicePrefix.toArray.map(_.toChar).mkString
+    val prefix = network.invoicePrefix.map(_.byte.toChar).mkString
     b.append(prefix)
 
     val amt = amount.map(_.toEncodedString).getOrElse("")

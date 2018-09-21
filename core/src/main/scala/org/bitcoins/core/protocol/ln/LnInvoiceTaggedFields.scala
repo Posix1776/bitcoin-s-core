@@ -10,8 +10,7 @@ import scala.collection.mutable
 /**
  * An aggregation of all the individual tagged fields in a [[org.bitcoins.core.protocol.ln.LnInvoice]]
  */
-sealed abstract class LnInvoiceTaggedFields {
-  private val logger = LoggerFactory.getLogger(this.getClass.getSimpleName)
+sealed abstract class LnInvoiceTaggedFields extends NetworkElement {
 
   def paymentHash: LnInvoiceTag.PaymentHashTag
 
@@ -28,6 +27,17 @@ sealed abstract class LnInvoiceTaggedFields {
   def fallbackAddress: Option[LnInvoiceTag.FallbackAddressTag]
 
   def routingInfo: Option[LnInvoiceTag.RoutingInfo]
+
+  override def bytes: ByteVector = {
+    paymentHash.bytes ++
+      description.map(_.bytes).getOrElse(ByteVector.empty) ++
+      nodeId.map(_.bytes).getOrElse(ByteVector.empty) ++
+      descriptionHash.map(_.bytes).getOrElse(ByteVector.empty) ++
+      expiryTime.map(_.bytes).getOrElse(ByteVector.empty) ++
+      cltvExpiry.map(_.bytes).getOrElse(ByteVector.empty) ++
+      fallbackAddress.map(_.bytes).getOrElse(ByteVector.empty) ++
+      routingInfo.map(_.bytes).getOrElse(ByteVector.empty)
+  }
 
   override def toString: String = {
     val empty = ""

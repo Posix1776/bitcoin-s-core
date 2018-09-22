@@ -1,5 +1,9 @@
 package org.bitcoins.core.protocol.ln
 
+import org.bitcoins.core.number.UInt5
+import org.bitcoins.core.util.Bech32
+import org.slf4j.LoggerFactory
+
 sealed abstract class LnTagPrefix {
   def value: Char
 
@@ -11,6 +15,7 @@ sealed abstract class LnTagPrefix {
  * Please see: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md#tagged-fields
  */
 object LnTagPrefix {
+  private val logger = LoggerFactory.getLogger(this.getClass.getSimpleName)
 
   case object PaymentHash extends LnTagPrefix {
     override def value: Char = 'p'
@@ -44,16 +49,23 @@ object LnTagPrefix {
     override def value: Char = 'r'
   }
 
-  case object None extends LnTagPrefix {
-    override def value: Char = "".toCharArray.head
-  }
-
-  private val all = List(
+  private val all: List[LnTagPrefix] = List(
     PaymentHash, Description, NodeId,
     DescriptionHash, ExpiryTime, CltvExpiry,
-    FallbackAddress, RoutingInfo, None)
+    FallbackAddress, RoutingInfo)
 
   def fromString(str: String): Option[LnTagPrefix] = {
     all.find(_.value == str)
+  }
+
+  private lazy val prefixUInt5: Map[UInt5, LnTagPrefix] = {
+    all.map { a =>
+      val index = Bech32.charset.indexOf(a.value)
+      (UInt5(index), a)
+    }.toMap
+  }
+
+  def fromUInt5(u5: UInt5): Option[LnTagPrefix] = {
+    prefixUInt5.get(u5)
   }
 }

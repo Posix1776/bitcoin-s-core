@@ -1,6 +1,8 @@
 package org.bitcoins.core.util
 
 import org.bitcoins.core.number.{ UInt32, UInt5, UInt8 }
+import org.bitcoins.core.protocol.ln.LnHumanReadablePart
+import org.bitcoins.core.protocol.ln.LnHumanReadablePart.parse
 import org.slf4j.LoggerFactory
 import scodec.bits.{ BitVector, ByteVector }
 
@@ -15,16 +17,6 @@ import scala.util.{ Failure, Success, Try }
 sealed abstract class Bech32 {
 
   private val logger = LoggerFactory.getLogger(this.getClass.getSimpleName)
-
-  /** Separator used to separate the hrp & data parts of a bech32 addr */
-  val separator = '1'
-
-  /** https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32 */
-  val charset: Vector[Char] = Vector(
-    'q', 'p', 'z', 'r', 'y', '9', 'x', '8',
-    'g', 'f', '2', 't', 'v', 'd', 'w', '0',
-    's', '3', 'j', 'n', '5', '4', 'k', 'h',
-    'c', 'e', '6', 'm', 'u', 'a', '7', 'l')
 
   private val generators: Vector[Long] = Vector(
     UInt32("3b6a57b2").toLong,
@@ -89,6 +81,33 @@ sealed abstract class Bech32 {
     chk
   }
 
+  /** Checks if the possible human readable part follows BIP173 rules */
+  def checkHrpValidity[T](hrp: String, f: String => Try[T]): Try[T] = {
+    @tailrec
+    def loop(remaining: List[Char], accum: Seq[UInt8], isLower: Boolean, isUpper: Boolean): Try[Seq[UInt8]] = remaining match {
+      case h :: t =>
+        if (h < 33 || h > 126) {
+          Failure(new IllegalArgumentException("Invalid character range for hrp, got: " + hrp))
+        } else if (isLower && isUpper) {
+          Failure(new IllegalArgumentException("HRP had mixed case, got: " + hrp))
+        } else {
+          loop(t, UInt8(h.toByte) +: accum, h.isLower || isLower, h.isUpper || isUpper)
+        }
+      case Nil =>
+        if (isLower && isUpper) {
+          Failure(new IllegalArgumentException("HRP had mixed case, got: " + hrp))
+        } else {
+          Success(accum.reverse)
+        }
+    }
+
+    val isValid = loop(hrp.toCharArray.toList, Nil, false, false)
+
+    isValid.flatMap { _ =>
+      f(hrp.toLowerCase)
+    }
+  }
+
   /**
    * Takes in the data portion of a bech32 address and decodes it to a byte array
    * It also checks the validity of the data portion according to BIP173
@@ -98,13 +117,13 @@ sealed abstract class Bech32 {
     def loop(remaining: List[Char], accum: Vector[UInt5], hasUpper: Boolean, hasLower: Boolean): Try[Vector[UInt5]] = remaining match {
       case Nil => Success(accum.reverse)
       case h :: t =>
-        if (!charset.contains(h.toLower)) {
+        if (!Bech32.charset.contains(h.toLower)) {
           Failure(new IllegalArgumentException("Invalid character in data of bech32 address, got: " + h))
         } else {
           if ((h.isUpper && hasLower) || (h.isLower && hasUpper)) {
             Failure(new IllegalArgumentException("Cannot have mixed case for bech32 address"))
           } else {
-            val byte = charset.indexOf(h.toLower).toByte
+            val byte = Bech32.charset.indexOf(h.toLower).toByte
             require(byte >= 0 && byte < 32, "Not in valid range, got: " + byte)
             loop(
               remaining = t,
@@ -165,7 +184,7 @@ sealed abstract class Bech32 {
 
   /** Takes a bech32 5bit array and encodes it to a string */
   def encode5bitToString(b: Vector[UInt5]): String = {
-    b.map(b => charset(b.toInt)).mkString
+    b.map(b => Bech32.charset(b.toInt)).mkString
   }
 
   /** Converts a byte vector from 8bits to 5bits */
@@ -198,4 +217,15 @@ sealed abstract class Bech32 {
 
 }
 
-object Bech32 extends Bech32
+object Bech32 extends Bech32 {
+
+  /** Separator used to separate the hrp & data parts of a bech32 addr */
+  val separator = '1'
+
+  /** https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32 */
+  val charset: Vector[Char] = Vector(
+    'q', 'p', 'z', 'r', 'y', '9', 'x', '8',
+    'g', 'f', '2', 't', 'v', 'd', 'w', '0',
+    's', '3', 'j', 'n', '5', '4', 'k', 'h',
+    'c', 'e', '6', 'm', 'u', 'a', '7', 'l')
+}

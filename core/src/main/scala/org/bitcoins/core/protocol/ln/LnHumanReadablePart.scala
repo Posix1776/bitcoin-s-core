@@ -1,11 +1,13 @@
 package org.bitcoins.core.protocol.ln
 
 import org.bitcoins.core.config.NetworkParameters
-import org.bitcoins.core.number.UInt5
-import org.bitcoins.core.protocol.NetworkElement
+import org.bitcoins.core.number.{ UInt5, UInt8 }
+import org.bitcoins.core.protocol.{ HumanReadablePart, NetworkElement }
 import org.bitcoins.core.protocol.ln.LnParams._
+import org.bitcoins.core.util.Bech32
 import scodec.bits.ByteVector
 
+import scala.annotation.tailrec
 import scala.util.matching.Regex
 import scala.util.{ Failure, Success, Try }
 
@@ -102,6 +104,11 @@ object LnHumanReadablePart {
    * @return
    */
   def fromString(input: String): Try[LnHumanReadablePart] = {
+    val hrpIsValidT = Bech32.checkHrpValidity(input, parse)
+    hrpIsValidT
+  }
+
+  private def parse(input: String): Try[LnHumanReadablePart] = {
     //Select all of the letters, until we hit a number, as the network
     val networkPattern: Regex = "^[a-z]*".r
     val networkStringOpt = networkPattern.findFirstIn(input)
@@ -125,4 +132,5 @@ object LnHumanReadablePart {
       }
     }
   }
+
 }

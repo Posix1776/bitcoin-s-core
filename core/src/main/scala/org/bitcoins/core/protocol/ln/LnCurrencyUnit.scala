@@ -203,7 +203,7 @@ object PicoBitcoins extends BaseNumbers[PicoBitcoins] {
   val zero = PicoBitcoins(0)
   val one = PicoBitcoins(1)
 
-  def apply(picoBitcoins: Int64): PicoBitcoins = PicoBitcoins(picoBitcoins.toBigInt)
+  def apply(i64: Int64): PicoBitcoins = PicoBitcoins(i64.toBigInt)
 
   def apply(underlying: BigInt): PicoBitcoins = PicoBitcoinsImpl(underlying)
 

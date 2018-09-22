@@ -45,7 +45,12 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
 
     val invoice = Invoice(hrpEmpty, time, lnTags, lnSig)
 
-    invoice.toString must be("lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcqca784w")
+    val serialized = invoice.toString
+    serialized must be("lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcqca784w")
+
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get.toString must be(invoice.toString)
   }
 
   it must "parse BOLT11 example 2" in {
@@ -64,7 +69,13 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
 
     val invoice = Invoice(hrpMicro, time, lnTags, lnSig)
 
-    invoice.toString must be("lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp")
+    val serialized = invoice.toString
+
+    serialized must be("lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp")
+
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get.toString must be(invoice.toString)
   }
 
   it must "parse BOLT11 example 3" in {
@@ -83,7 +94,13 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
 
     val invoice = Invoice(hrpMicro, time, lnTags, lnSig)
 
+    val serialized = invoice.toString
+
     invoice.toString must be("lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrny")
+
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get must be(invoice)
   }
 
   it must "parse BOLT11 example 4" in {
@@ -103,7 +120,13 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
 
     val invoice = Invoice(hrpMilli, time, lnTags, lnSig)
 
+    val serialized = invoice.toString
+
     invoice.toString must be("lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqscc6gd6ql3jrc5yzme8v4ntcewwz5cnw92tz0pc8qcuufvq7khhr8wpald05e92xw006sq94mg8v2ndf4sefvf9sygkshp5zfem29trqq2yxxz7")
+
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get must be(invoice)
   }
 
   it must "parse BOLT11 example 5" in {
@@ -124,12 +147,17 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
 
     val invoice = Invoice(hrpTestNetMilli, time, lnTags, lnSig)
 
-    invoice.toString must be("lntb20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3x9et2e20v6pu37c5d9vax37wxq72un98kmzzhznpurw9sgl2v0nklu2g4d0keph5t7tj9tcqd8rexnd07ux4uv2cjvcqwaxgj7v4uwn5wmypjd5n69z2xm3xgksg28nwht7f6zsp2mh7qm")
+    val serialized = invoice.toString
+
+    serialized must be("lntb20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3x9et2e20v6pu37c5d9vax37wxq72un98kmzzhznpurw9sgl2v0nklu2g4d0keph5t7tj9tcqd8rexnd07ux4uv2cjvcqwaxgj7v4uwn5wmypjd5n69z2xm3xgksg28nwht7f6zsp2mh7qm")
     //In example #5, the order in which tags are encoded in the invoice has been changed to demonstrate the ability to move tags as needed.
     //For that reason, the example #5 output we are matching against has been modified to fit the order in which we encode our invoices.
     //TODO: Add checksum data to check
-  }
 
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get.toString must be(serialized)
+  }
   it must "parse BOLT11 example 6" in {
     val expected = "lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3qjmp7lwpagxun9pygexvgpjdc4jdj85fr9yq20q82gphp2nflc7jtzrcazrra7wwgzxqc8u7754cdlpfrmccae92qgzqvzq2ps8pqqqqqqpqqqqq9qqqvpeuqafqxu92d8lr6fvg0r5gv0heeeqgcrqlnm6jhphu9y00rrhy4grqszsvpcgpy9qqqqqqgqqqqq7qqzqj9n4evl6mr5aj9f58zp6fyjzup6ywn3x6sk8akg5v4tgn2q8g4fhx05wf6juaxu9760yp46454gpg5mtzgerlzezqcqvjnhjh8z3g2qqdhhwkj"
 
@@ -169,7 +197,12 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
       lnTags = lnTags,
       signature = lnInvoiceSig)
 
-    lnInvoice.toString must be(expected)
+    val serialized = lnInvoice.toString
+    serialized must be(expected)
+
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get.toString must be(serialized)
   }
 
   it must "parse BOLT11 example 7 (p2sh fallback addr)" in {
@@ -195,7 +228,13 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
       lnTags = lnTags,
       signature = lnInvoiceSig)
 
+    val serialized = lnInvoice.toString
+
     lnInvoice.toString must be(expected)
+
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get.toString must be(serialized)
   }
 
   it must "parse BOLT11 example 7 (p2wpkh fallback addr)" in {
@@ -227,7 +266,13 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
       lnTags = lnTags,
       signature = lnInvoiceSig)
 
-    lnInvoice.toString must be(expected)
+    val serialized = lnInvoice.toString
+
+    serialized must be(expected)
+
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get must be(lnInvoice)
   }
 
   it must "parse BOLT11 example 8 (p2wsh fallback addr)" in {
@@ -257,7 +302,12 @@ class LnInvoiceUnitTest extends FlatSpec with MustMatchers {
       lnTags = lnTags,
       signature = lnInvoiceSig)
 
+    val serialized = lnInvoice.toString
+
     lnInvoice.toString must be(expected)
 
+    val deserialized = LnInvoice.fromString(serialized)
+
+    deserialized.get must be(lnInvoice)
   }
 }

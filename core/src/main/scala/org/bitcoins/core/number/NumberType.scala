@@ -200,13 +200,15 @@ object UInt5 extends Factory[UInt5] with BaseNumbers[UInt5] {
 
   def apply(bigInt: BigInt): UInt5 = {
 
-    require(bigInt.toByteArray.size == 1)
+    require(
+      bigInt.toByteArray.size == 1,
+      s"To create a uint5 from a ByteVector it must be of size one ${bigInt}")
 
     UInt5.fromByte(bigInt.toByteArray.head)
   }
 
   override def fromBytes(bytes: ByteVector): UInt5 = {
-    require(bytes.size == 1)
+    require(bytes.size == 1, s"To create a uint5 from a ByteVector it must be of size one ${bytes.length}")
     UInt5.fromByte(bytes.head)
   }
 

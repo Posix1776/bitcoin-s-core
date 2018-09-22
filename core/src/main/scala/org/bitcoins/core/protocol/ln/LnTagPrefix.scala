@@ -1,9 +1,9 @@
 package org.bitcoins.core.protocol.ln
 
 sealed abstract class LnTagPrefix {
-  def value: String
+  def value: Char
 
-  override def toString: String = value
+  override def toString: String = value.toString
 }
 
 /**
@@ -13,39 +13,39 @@ sealed abstract class LnTagPrefix {
 object LnTagPrefix {
 
   case object PaymentHash extends LnTagPrefix {
-    override def value: String = "p"
+    override def value: Char = 'p'
   }
   case object Description extends LnTagPrefix {
-    override def value: String = "d"
+    override def value: Char = 'd'
   }
 
   /** The nodeId of the node paying the invoice */
   case object NodeId extends LnTagPrefix {
-    override def value: String = "n"
+    override def value: Char = 'n'
   }
 
   case object DescriptionHash extends LnTagPrefix {
-    override def value: String = "h"
+    override def value: Char = 'h'
   }
 
   case object ExpiryTime extends LnTagPrefix {
-    override def value: String = "x"
+    override def value: Char = 'x'
   }
 
   case object CltvExpiry extends LnTagPrefix {
-    override def value: String = "c"
+    override def value: Char = 'c'
   }
 
   case object FallbackAddress extends LnTagPrefix {
-    override def value: String = "f"
+    override def value: Char = 'f'
   }
 
   case object RoutingInfo extends LnTagPrefix {
-    override def value: String = "r"
+    override def value: Char = 'r'
   }
 
   case object None extends LnTagPrefix {
-    override def value: String = ""
+    override def value: Char = "".toCharArray.head
   }
 
   private val all = List(

@@ -21,13 +21,13 @@ sealed abstract class LnHumanReadablePart {
 
   def amount: Option[LnCurrencyUnit]
 
-  def bytes: Vector[UInt5] = {
-    network.invoicePrefix ++ amount.map(_.fiveBitEncoding).getOrElse(Vector.empty)
+  def bytes: ByteVector = {
+    network.invoicePrefix ++ amount.map(_.encodedBytes).getOrElse(ByteVector.empty)
   }
 
   override def toString: String = {
     val b = StringBuilder.newBuilder
-    val prefix = network.invoicePrefix.map(_.byte.toChar).mkString
+    val prefix = network.invoicePrefix.toArray.map(_.toChar).mkString
     b.append(prefix)
 
     val amt = amount.map(_.toEncodedString).getOrElse("")

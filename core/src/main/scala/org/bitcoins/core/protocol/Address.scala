@@ -1,7 +1,7 @@
 package org.bitcoins.core.protocol
 import org.bitcoins.core.config._
 import org.bitcoins.core.config.{ MainNet, RegTest, TestNet3 }
-import org.bitcoins.core.crypto.{ ECPublicKey, HashDigest, Sha256Digest, Sha256Hash160Digest }
+import org.bitcoins.core.crypto._
 import org.bitcoins.core.number.{ UInt32, UInt5, UInt8 }
 import org.bitcoins.core.protocol.transaction.TransactionOutput
 import org.bitcoins.core.protocol.script._
@@ -88,9 +88,16 @@ sealed abstract class Bech32Address extends BitcoinAddress {
     Bech32Address.fromStringToWitSPK(value).get
   }
 
-  override def hash: Sha256Digest = {
+  override def hash: HashDigest = {
     val byteVector = BitcoinSUtil.toByteVector(scriptPubKey.witnessProgram)
-    Sha256Digest(byteVector)
+    scriptPubKey match {
+      case _: P2WPKHWitnessSPKV0 =>
+        RipeMd160Digest(byteVector)
+      case _: P2WSHWitnessSPKV0 =>
+        Sha256Digest(byteVector)
+      case _: UnassignedWitnessScriptPubKey =>
+        throw new IllegalArgumentException(s"Cannot parse the hash of an unassigned witness scriptpubkey for bech32 address")
+    }
   }
 
   override def toString = "Bech32Address(" + value + ")"

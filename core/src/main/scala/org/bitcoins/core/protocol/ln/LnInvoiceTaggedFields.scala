@@ -1,7 +1,9 @@
 package org.bitcoins.core.protocol.ln
 
+import org.bitcoins.core.number.UInt5
 import org.bitcoins.core.protocol.NetworkElement
 import org.bitcoins.core.protocol.ln.LnInvoiceTag.PaymentHashTag
+import org.bitcoins.core.util.Bech32
 import org.slf4j.LoggerFactory
 import scodec.bits.ByteVector
 
@@ -10,7 +12,7 @@ import scala.collection.mutable
 /**
  * An aggregation of all the individual tagged fields in a [[org.bitcoins.core.protocol.ln.LnInvoice]]
  */
-sealed abstract class LnInvoiceTaggedFields extends NetworkElement {
+sealed abstract class LnInvoiceTaggedFields {
 
   def paymentHash: LnInvoiceTag.PaymentHashTag
 
@@ -28,23 +30,21 @@ sealed abstract class LnInvoiceTaggedFields extends NetworkElement {
 
   def routingInfo: Option[LnInvoiceTag.RoutingInfo]
 
-  override def bytes: ByteVector = {
-    paymentHash.bytes ++
-      description.map(_.bytes).getOrElse(ByteVector.empty) ++
-      nodeId.map(_.bytes).getOrElse(ByteVector.empty) ++
-      descriptionHash.map(_.bytes).getOrElse(ByteVector.empty) ++
-      expiryTime.map(_.bytes).getOrElse(ByteVector.empty) ++
-      cltvExpiry.map(_.bytes).getOrElse(ByteVector.empty) ++
-      fallbackAddress.map(_.bytes).getOrElse(ByteVector.empty) ++
-      routingInfo.map(_.bytes).getOrElse(ByteVector.empty)
+  def data: Vector[UInt5] = {
+    paymentHash.data ++
+      description.map(_.data).getOrElse(Vector.empty) ++
+      nodeId.map(_.data).getOrElse(Vector.empty) ++
+      descriptionHash.map(_.data).getOrElse(Vector.empty) ++
+      expiryTime.map(_.data).getOrElse(Vector.empty) ++
+      cltvExpiry.map(_.data).getOrElse(Vector.empty) ++
+      fallbackAddress.map(_.data).getOrElse(Vector.empty) ++
+      routingInfo.map(_.data).getOrElse(Vector.empty)
   }
 
   override def toString: String = {
-    val empty = ""
-
     val b = new mutable.StringBuilder()
 
-    b.append(paymentHash.toString)
+    /*    b.append(paymentHash.toString)
     b.append(description.map(_.toString).getOrElse(empty))
     b.append(nodeId.map(_.toString).getOrElse(empty))
     b.append(descriptionHash.map(_.toString).getOrElse(empty))
@@ -53,7 +53,9 @@ sealed abstract class LnInvoiceTaggedFields extends NetworkElement {
     b.append(fallbackAddress.map(_.toString).getOrElse(empty))
 
     val routes = routingInfo.map(_.toString).getOrElse(empty)
-    b.append(routes)
+    b.append(routes)*/
+    val string = Bech32.encode5bitToString(data)
+    b.append(string)
 
     b.toString()
   }

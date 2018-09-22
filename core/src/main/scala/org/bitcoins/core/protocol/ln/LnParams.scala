@@ -20,7 +20,7 @@ sealed abstract class LnParams {
    * [[https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md]]
    * @return
    */
-  def invoicePrefix: Vector[UInt5]
+  def invoicePrefix: ByteVector
 }
 
 object LnParams {
@@ -32,8 +32,8 @@ object LnParams {
 
     override def lnPort = 9735
 
-    override val invoicePrefix: Vector[UInt5] = {
-      Vector('l', 'n', 'b', 'c').map(c => UInt5.fromByte(c.toByte))
+    override val invoicePrefix: ByteVector = {
+      ByteVector('l', 'n', 'b', 'c')
     }
   }
 
@@ -44,8 +44,8 @@ object LnParams {
 
     override def lnPort = 9735
 
-    override val invoicePrefix: Vector[UInt5] = {
-      Vector('l', 'n', 't', 'b').map(c => UInt5.fromByte(c.toByte))
+    override val invoicePrefix: ByteVector = {
+      ByteVector('l', 'n', 't', 'b')
     }
   }
 
@@ -56,8 +56,8 @@ object LnParams {
 
     override def lnPort = 9735
 
-    override val invoicePrefix: Vector[UInt5] = {
-      Vector('l', 'n', 'b', 'c', 'r', 't').map(c => UInt5.fromByte(c.toByte))
+    override val invoicePrefix: ByteVector = {
+      ByteVector('l', 'n', 'b', 'c', 'r', 't')
     }
   }
 
@@ -70,7 +70,7 @@ object LnParams {
   private val prefixes: Map[String, LnParams] = {
     val vec: Vector[(String, LnParams)] = {
       allNetworks.map { network =>
-        (network.invoicePrefix.map(_.byte.toChar).mkString, network)
+        (network.invoicePrefix.decodeAscii.right.get, network)
       }
     }
     vec.toMap
